@@ -45,19 +45,6 @@ public struct VisionFormWorkspaceView: View {
 
     public var body: some View {
         ZStack {
-            // Full-bleed dark slate workspace background (#0D1117)
-            Color(red: 13/255, green: 17/255, blue: 23/255)
-                .ignoresSafeArea()
-
-            // Subtle depth shadows & radial ambient lighting
-            RadialGradient(
-                colors: [Color.blue.opacity(0.12), Color.cyan.opacity(0.04), Color.clear],
-                center: .center,
-                startRadius: 50,
-                endRadius: 650
-            )
-            .ignoresSafeArea()
-
             // Structured Studio Layout (Top Bar, Studio Workspace, Bottom Telemetry)
             VStack(spacing: 0) {
                 // Top Navigation Bar
@@ -119,9 +106,12 @@ public struct VisionFormWorkspaceView: View {
         } label: {
             Label("Procedural", systemImage: "slider.horizontal.3")
                 .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(.blue.opacity(0.3))
+        .buttonStyle(.plain)
+        .darkBlueTranslucentCapsule()
     }
 
     // MARK: - Viewport Center 3D Model
@@ -129,7 +119,7 @@ public struct VisionFormWorkspaceView: View {
         ZStack {
             // Floor shadow & ambient occlusion glow
             Ellipse()
-                .fill(Color.black.opacity(0.75))
+                .fill(Color.black.opacity(0.3))
                 .frame(width: 320, height: 60)
                 .blur(radius: 20)
                 .offset(y: 180)
@@ -211,13 +201,7 @@ public struct VisionFormWorkspaceView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.4), radius: 16, y: 8)
+        .darkBlueTranslucentCapsule()
     }
 
     // MARK: - Top Bar
@@ -259,9 +243,7 @@ public struct VisionFormWorkspaceView: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
+        .darkBlueTranslucentCapsule()
     }
 
     // MARK: - Left Vertical Toolbar
@@ -299,13 +281,7 @@ public struct VisionFormWorkspaceView: View {
         }
         .padding(.vertical, 16)
         .padding(.horizontal, 10)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.5), radius: 24, x: 0, y: 12)
+        .darkBlueTranslucentRounded(cornerRadius: 28)
     }
 
     // MARK: - Right Inspector Card
@@ -420,13 +396,7 @@ public struct VisionFormWorkspaceView: View {
         }
         .padding(20)
         .frame(width: 290)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.6), radius: 30, x: 0, y: 16)
+        .darkBlueTranslucentRounded(cornerRadius: 28)
     }
 
     private func sliderRow(title: String, value: Binding<Double>, range: ClosedRange<Double>, spec: String) -> some View {
@@ -516,13 +486,7 @@ public struct VisionFormWorkspaceView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.5), radius: 20, y: 8)
+            .darkBlueTranslucentCapsule()
 
             // Three subtle pagination dots below the pill
             HStack(spacing: 6) {
@@ -532,8 +496,7 @@ public struct VisionFormWorkspaceView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(.ultraThinMaterial.opacity(0.6))
-            .clipShape(Capsule())
+            .darkBlueTranslucentCapsule()
         }
         .padding(.bottom, 16)
     }
@@ -572,7 +535,86 @@ public struct VisionFormWorkspaceView: View {
         }
         .padding(30)
         .frame(width: 480)
-        .background(.ultraThinMaterial)
+        .darkBlueTranslucentRounded(cornerRadius: 32)
+    }
+}
+
+// MARK: - Dark Blue Translucent Panel Styling
+extension View {
+    func darkBlueTranslucentCapsule() -> some View {
+        self
+            .background(
+                ZStack {
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 10/255, green: 22/255, blue: 46/255).opacity(0.82),
+                                    Color(red: 6/255, green: 14/255, blue: 32/255).opacity(0.86)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+            )
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.cyan.opacity(0.35),
+                                Color.white.opacity(0.18),
+                                Color.blue.opacity(0.25)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.4), radius: 20, x: 0, y: 10)
+    }
+
+    func darkBlueTranslucentRounded(cornerRadius: CGFloat = 28) -> some View {
+        self
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 10/255, green: 22/255, blue: 46/255).opacity(0.84),
+                                    Color(red: 6/255, green: 14/255, blue: 32/255).opacity(0.88)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.cyan.opacity(0.35),
+                                Color.white.opacity(0.18),
+                                Color.blue.opacity(0.25)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.45), radius: 24, x: 0, y: 12)
     }
 }
 
