@@ -95,12 +95,12 @@ public func projectToView(_ point: Point3D, rotX: Double, rotY: Double) -> (x: D
     let alpha = rotX * (.pi / 180.0)
     let beta = rotY * (.pi / 180.0)
 
-    // Forward X rotation
+    // Forward X rotation (matching RealityKit qX around +X right-axis: top tilts towards user, front moves down +y in screen coords)
     let x1 = point.x
-    let y1 = point.y * cos(alpha) - point.z * sin(alpha)
-    let z1 = point.y * sin(alpha) + point.z * cos(alpha)
+    let y1 = point.y * cos(alpha) + point.z * sin(alpha)
+    let z1 = -point.y * sin(alpha) + point.z * cos(alpha)
 
-    // Forward Y rotation
+    // Forward Y rotation (matching RealityKit qY around +Y up-axis: front moves right +x in screen coords)
     let xCur = x1 * cos(beta) + z1 * sin(beta)
     let zCur = -x1 * sin(beta) + z1 * cos(beta)
     let yCur = y1
@@ -126,8 +126,8 @@ public func screenToSphere(screenPoint: CGPoint, rotX: Double, rotY: Double, rad
 
     // Inverse X rotation (by -alpha)
     let xObj = x1
-    let yObj = y1 * cos(alpha) + z1 * sin(alpha)
-    let zObj = -y1 * sin(alpha) + z1 * cos(alpha)
+    let yObj = y1 * cos(alpha) - z1 * sin(alpha)
+    let zObj = y1 * sin(alpha) + z1 * cos(alpha)
 
     return Point3D(x: xObj, y: yObj, z: zObj)
 }
@@ -157,20 +157,24 @@ public struct VisionFormWorkspaceView: View {
     @State private var activeStrokeSize: CGFloat = 14.0
     @State private var active3DStrokePoints: [Point3D] = []
 
+    // Drag & Stroke Interaction Tracking
+    @State private var lastDragLocation: CGPoint? = nil
+    @State private var isCurrentlyDrawingStroke: Bool = false
+
     // 3D Surface Strokes (drawn on the 3D product)
     @State private var strokes3D: [Surface3DStroke] = [
         Surface3DStroke(
             points: (0...24).map { i -> Point3D in
                 let t = Double(i) / 24.0
                 let angle = (t - 0.5) * 1.7
-                let radius = 155.0
+                let radius = 110.0
                 let x = sin(angle) * radius * 0.8
-                let y = (t - 0.5) * 150.0
+                let y = (t - 0.5) * 110.0
                 let z = sqrt(max(0.0, radius * radius - x * x - y * y))
                 return Point3D(x: x, y: y, z: z)
             },
             color: .cyan,
-            size: 14.0,
+            size: 10.0,
             isSculpt: false
         )
     ]
@@ -364,7 +368,9 @@ public struct VisionFormWorkspaceView: View {
 
     // MARK: - Viewport Center 3D Model (RealityKit 3D PBR Model + Drop Destination)
     private var viewportCenter: some View {
-        VStack(spacing: 12) {
+        let modelRadius: Double = 110.0 // 220pt diameter, perfectly sized for workspace viewport
+
+        return VStack(spacing: 12) {
             // Minimal Floating Brush HUD Palette
             if activeTool == "Brush" || activeTool == "Sculpt" {
                 brushControlHUD
@@ -375,22 +381,22 @@ public struct VisionFormWorkspaceView: View {
                 // Ambient floor contact shadow
                 if isGizmoLayerVisible {
                     Ellipse()
-                        .fill(Color.black.opacity(0.3))
-                        .frame(width: 320, height: 60)
-                        .blur(radius: 20)
-                        .offset(y: 180)
+                        .fill(Color.black.opacity(0.32))
+                        .frame(width: 220, height: 44)
+                        .blur(radius: 16)
+                        .offset(y: 130)
                 }
 
-                // Spatial Ring Gizmo Layer
+                // Spatial Ring Gizmo Layer (framed for 220pt model)
                 if isGizmoActive && isGizmoLayerVisible {
                     Circle()
                         .strokeBorder(Color.blue.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
-                        .frame(width: 360, height: 360)
-                        .scaleEffect(isExplodedView ? 1.32 : 1.0)
+                        .frame(width: 250, height: 250)
+                        .scaleEffect(isExplodedView ? 1.25 : 1.0)
                     Circle()
-                        .strokeBorder(Color.cyan.opacity(0.15), lineWidth: 1)
-                        .frame(width: 440, height: 440)
-                        .scaleEffect(isExplodedView ? 1.44 : 1.0)
+                        .strokeBorder(Color.cyan.opacity(0.18), lineWidth: 1)
+                        .frame(width: 300, height: 300)
+                        .scaleEffect(isExplodedView ? 1.35 : 1.0)
                 }
 
                 // 3D Model & Interactive Layers Group
@@ -400,13 +406,17 @@ public struct VisionFormWorkspaceView: View {
                         RealityView { content in
                             let root = Entity()
                             root.name = "StudioModelRoot"
+                            // Position recessed in window so front pole touches window surface z = 0
+                            root.position = SIMD3<Float>(0, 0, -0.075)
 
                             if let scene = try? await Entity(named: "Scene", in: realityKitContentBundle) {
                                 scene.name = "SceneEntity"
-                                scene.scale = SIMD3<Float>(repeating: 2.2)
+                                // Scene.usda has radius = 0.05m -> scale 1.5 gives 0.075m radius = 0.15m diameter (~220pt)
+                                scene.scale = SIMD3<Float>(repeating: 1.5)
+                                removeColliders(from: scene)
                                 root.addChild(scene)
                             } else {
-                                let mesh = MeshResource.generateSphere(radius: 0.11)
+                                let mesh = MeshResource.generateSphere(radius: 0.075)
                                 var pbr = PhysicallyBasedMaterial()
                                 pbr.baseColor = .init(tint: UIColor(red: 0.3, green: 0.65, blue: 0.98, alpha: 1.0))
                                 let sphere = ModelEntity(mesh: mesh, materials: [pbr])
@@ -414,6 +424,7 @@ public struct VisionFormWorkspaceView: View {
                                 root.addChild(sphere)
                             }
 
+                            removeColliders(from: root)
                             content.add(root)
                         } update: { content in
                             guard let root = content.entities.first(where: { $0.name == "StudioModelRoot" }) else { return }
@@ -425,8 +436,8 @@ public struct VisionFormWorkspaceView: View {
                             let qY = simd_quatf(angle: radY, axis: SIMD3<Float>(0, 1, 0))
                             root.transform.rotation = qY * qX
 
-                            // 2. Exploded scale if active
-                            let baseScale: Float = isExplodedView ? 1.85 : 2.2
+                            // 2. Exploded scale if active (centered and compact)
+                            let baseScale: Float = isExplodedView ? 0.88 : 1.0
                             root.transform.scale = SIMD3<Float>(repeating: baseScale)
 
                             // 3. True 3D Physically-Based Material applied directly to the 3D Mesh
@@ -440,17 +451,19 @@ public struct VisionFormWorkspaceView: View {
                         }
                         .frame(width: 340, height: 340)
                         .opacity(layerOpacity["base"] ?? 1.0)
+                        .allowsHitTesting(false)
                     }
 
                     // Layer 2: Topology Wireframe Grid
                     if isWireframeLayerVisible {
                         WireframeOverlayView(subdivisions: 10)
-                            .frame(width: 340, height: 340)
-                            .scaleEffect(isExplodedView ? 1.22 : 1.0)
+                            .frame(width: 220, height: 220)
+                            .scaleEffect(isExplodedView ? 1.2 : 1.0)
                             .opacity(layerOpacity["wireframe"] ?? 0.85)
                             .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
                             .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
                             .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isExplodedView)
+                            .allowsHitTesting(false)
                     }
 
                     // Layer 1: True 3D Surface Paint & Sculpt Strokes
@@ -462,12 +475,13 @@ public struct VisionFormWorkspaceView: View {
                             activeSize: activeStrokeSize,
                             rotX: rotationX,
                             rotY: rotationY,
-                            radius: 155.0
+                            radius: modelRadius
                         )
                         .frame(width: 340, height: 340)
                         .scaleEffect(isExplodedView ? 1.12 : 1.0)
                         .opacity(layerOpacity["paint"] ?? 1.0)
                         .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isExplodedView)
+                        .allowsHitTesting(false)
                     }
 
                     // Drop Target Animated Beacon when dragging material over model
@@ -481,8 +495,8 @@ public struct VisionFormWorkspaceView: View {
                                 ),
                                 style: StrokeStyle(lineWidth: 3, dash: [10, 6])
                             )
-                            .frame(width: 360, height: 360)
-                            .shadow(color: .cyan, radius: 24)
+                            .frame(width: 250, height: 250)
+                            .shadow(color: .cyan, radius: 20)
                             .overlay(
                                 Text("Drop Material to Apply")
                                     .font(.system(size: 13, weight: .bold))
@@ -492,10 +506,12 @@ public struct VisionFormWorkspaceView: View {
                                     .background(Color.black.opacity(0.75))
                                     .clipShape(Capsule())
                             )
+                            .allowsHitTesting(false)
                     }
                 }
-                .contentShape(Circle())
-                // Requirement 1: Make 3D model a Drop Destination for materials
+                .frame(width: 340, height: 340)
+                .contentShape(Rectangle())
+                // Drop Destination for materials
                 .dropDestination(for: String.self) { items, location in
                     guard let materialName = items.first else { return false }
                     applyMaterial(named: materialName)
@@ -505,28 +521,36 @@ public struct VisionFormWorkspaceView: View {
                         isDropTargetActive = targeted
                     }
                 }
-                // Requirement 2 & 3: Painting in 3D Product Space & Orbiting
+                // Painting in 3D Product Space & Smooth Orbit
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            let radius = 155.0
                             let center = CGPoint(x: 170.0, y: 170.0)
+                            let radius = modelRadius
                             let dx = Double(value.location.x - center.x)
                             let dy = Double(value.location.y - center.y)
                             let r2 = dx * dx + dy * dy
 
-                            // If brush is TOGGLED ON and not in orbit-only mode:
+                            // Check if drawing mode is active:
                             if isBrushActive && (activeTool == "Brush" || activeTool == "Sculpt") && !brushOrbitMode {
-                                if r2 <= radius * radius {
-                                    // Map screen point to 3D surface point on sphere
+                                if isCurrentlyDrawingStroke || r2 <= radius * radius {
+                                    isCurrentlyDrawingStroke = true
+                                    let samplePoint: CGPoint
+                                    if r2 <= radius * radius {
+                                        samplePoint = value.location
+                                    } else {
+                                        // Clamp to sphere horizon edge so strokes don't abruptly break
+                                        let factor = (radius - 1.0) / sqrt(r2)
+                                        samplePoint = CGPoint(x: 170.0 + dx * factor, y: 170.0 + dy * factor)
+                                    }
+
                                     if let pt3D = screenToSphere(
-                                        screenPoint: value.location,
+                                        screenPoint: samplePoint,
                                         rotX: rotationX,
                                         rotY: rotationY,
                                         radius: radius
                                     ) {
                                         if brushMode == .erase {
-                                            // Erase nearest 3D strokes
                                             strokes3D.removeAll { stroke in
                                                 stroke.points.contains { p in
                                                     let dist = hypot(p.x - pt3D.x, hypot(p.y - pt3D.y, p.z - pt3D.z))
@@ -534,21 +558,41 @@ public struct VisionFormWorkspaceView: View {
                                                 }
                                             }
                                         } else {
-                                            active3DStrokePoints.append(pt3D)
+                                            if let last = active3DStrokePoints.last {
+                                                let d = hypot(pt3D.x - last.x, hypot(pt3D.y - last.y, pt3D.z - last.z))
+                                                if d > 2.0 {
+                                                    active3DStrokePoints.append(pt3D)
+                                                }
+                                            } else {
+                                                active3DStrokePoints.append(pt3D)
+                                            }
                                         }
                                     }
+                                    lastDragLocation = nil
                                 } else {
-                                    // Dragging outside the sphere orbits view
-                                    rotationY += Double(value.translation.width) * 0.02
-                                    rotationX -= Double(value.translation.height) * 0.02
+                                    // Dragged outside sphere without having started a stroke -> Orbit
+                                    if let prev = lastDragLocation {
+                                        let deltaX = Double(value.location.x - prev.x)
+                                        let deltaY = Double(value.location.y - prev.y)
+                                        rotationY += deltaX * 0.4
+                                        rotationX -= deltaY * 0.4
+                                    }
+                                    lastDragLocation = value.location
                                 }
                             } else {
-                                // Default orbit gesture (when brush is OFF or in Orbit mode)
-                                rotationY += Double(value.translation.width) * 0.04
-                                rotationX -= Double(value.translation.height) * 0.04
+                                // Brush is OFF or in Orbit Mode -> Smooth 3D Orbit
+                                if let prev = lastDragLocation {
+                                    let deltaX = Double(value.location.x - prev.x)
+                                    let deltaY = Double(value.location.y - prev.y)
+                                    rotationY += deltaX * 0.4
+                                    rotationX -= deltaY * 0.4
+                                }
+                                lastDragLocation = value.location
                             }
                         }
-                        .onEnded { value in
+                        .onEnded { _ in
+                            isCurrentlyDrawingStroke = false
+                            lastDragLocation = nil
                             if isBrushActive && !active3DStrokePoints.isEmpty {
                                 let stroke = Surface3DStroke(
                                     points: active3DStrokePoints,
@@ -563,8 +607,18 @@ public struct VisionFormWorkspaceView: View {
                         }
                 )
             }
+            .frame(width: 340, height: 340)
         }
         .frame(maxWidth: 500, maxHeight: 560)
+    }
+
+    // MARK: - Remove Colliders so RealityKit never blocks SwiftUI gestures
+    private func removeColliders(from entity: Entity) {
+        entity.components.remove(InputTargetComponent.self)
+        entity.components.remove(CollisionComponent.self)
+        for child in entity.children {
+            removeColliders(from: child)
+        }
     }
 
     // MARK: - Recursively Apply Material to RealityKit Entities
@@ -1452,7 +1506,7 @@ public struct Surface3DCanvasView: View {
         activeSize: CGFloat,
         rotX: Double,
         rotY: Double,
-        radius: Double = 155.0
+        radius: Double = 110.0
     ) {
         self.strokes = strokes
         self.activePoints = activePoints
@@ -1466,6 +1520,10 @@ public struct Surface3DCanvasView: View {
     public var body: some View {
         Canvas { context, size in
             let center = CGPoint(x: size.width / 2.0, y: size.height / 2.0)
+
+            // Strictly clip all strokes to the 3D spherical mesh boundary
+            let sphereRect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+            context.clip(to: Path(ellipseIn: sphereRect))
 
             // Render all completed 3D strokes
             for stroke in strokes {
@@ -1492,7 +1550,6 @@ public struct Surface3DCanvasView: View {
             }
         }
         .frame(width: 340, height: 340)
-        .clipShape(Circle())
     }
 
     private func draw3DStroke(
