@@ -1054,12 +1054,12 @@ public struct WireframeOverlayView: View {
 
     public var body: some View {
         Canvas { context, size in
-            let w = size.width
-            let h = size.height
+            let w = Double(size.width)
+            let h = Double(size.height)
 
             // Outer glowing rim
             context.stroke(
-                Circle().path(in: CGRect(origin: .zero, size: size)),
+                Circle().path(in: CGRect(x: 0, y: 0, width: w, height: h)),
                 with: .color(Color.cyan.opacity(0.55)),
                 lineWidth: 1.5
             )
@@ -1068,12 +1068,12 @@ public struct WireframeOverlayView: View {
             for i in 1..<subdivisions {
                 let norm = Double(i) / Double(subdivisions)
                 let angle = norm * .pi
-                let yOffset = cos(angle) * (h / 2)
+                let yOffset = cos(angle) * (h / 2.0)
                 let ringWidth = sin(angle) * w
-                let ringHeight = max(2, ringWidth * 0.28)
+                let ringHeight = max(2.0, ringWidth * 0.28)
                 let rect = CGRect(
-                    x: (w - ringWidth) / 2,
-                    y: (h / 2) + yOffset - (ringHeight / 2),
+                    x: (w - ringWidth) / 2.0,
+                    y: (h / 2.0) + yOffset - (ringHeight / 2.0),
                     width: ringWidth,
                     height: ringHeight
                 )
@@ -1087,10 +1087,10 @@ public struct WireframeOverlayView: View {
             // Longitude curves
             for i in 0..<subdivisions {
                 let angle = Double(i) * (.pi / Double(subdivisions))
-                let ringWidth = max(2, sin(angle) * w)
+                let ringWidth = max(2.0, sin(angle) * w)
                 let rect = CGRect(
-                    x: (w - ringWidth) / 2,
-                    y: 0,
+                    x: (w - ringWidth) / 2.0,
+                    y: 0.0,
                     width: ringWidth,
                     height: h
                 )
