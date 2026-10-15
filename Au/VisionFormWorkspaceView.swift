@@ -9,8 +9,39 @@ import SwiftUI
 import RealityKit
 import RealityKitContent
 
+// MARK: - Brush Data Types
+public enum BrushMode: String, CaseIterable, Sendable {
+    case paint = "Paint"
+    case sculpt = "Sculpt"
+    case erase = "Erase"
+
+    public var icon: String {
+        switch self {
+        case .paint: return "paintbrush.fill"
+        case .sculpt: return "mountain.2.fill"
+        case .erase: return "eraser.fill"
+        }
+    }
+}
+
+public struct BrushStroke: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public var points: [CGPoint]
+    public var color: Color
+    public var size: CGFloat
+    public var isSculpt: Bool
+
+    public init(id: UUID = UUID(), points: [CGPoint], color: Color, size: CGFloat, isSculpt: Bool) {
+        self.id = id
+        self.points = points
+        self.color = color
+        self.size = size
+        self.isSculpt = isSculpt
+    }
+}
+
 public struct VisionFormWorkspaceView: View {
-    // Spatial State
+    // Spatial Tool & Material State
     @State private var activeTool: String = "Sculpt"
     @State private var activeMaterial: String = "Organic Polymer"
     @State private var roughness: Double = 43.0
@@ -18,14 +49,48 @@ public struct VisionFormWorkspaceView: View {
     @State private var specular: Double = 1.5
     @State private var isGizmoActive: Bool = true
     @State private var showInspector: Bool = true
+    @State private var showLayersPanel: Bool = false
     @State private var showAIGenSheet: Bool = false
     @State private var rotationX: Double = -2.0
     @State private var rotationY: Double = -2.0
     @State private var polyCount: Int = 42804
 
+    // Interactive Brush State
+    @State private var brushStrokes: [BrushStroke] = [
+        BrushStroke(
+            points: [
+                CGPoint(x: 120, y: 155),
+                CGPoint(x: 150, y: 165),
+                CGPoint(x: 185, y: 168),
+                CGPoint(x: 220, y: 160)
+            ],
+            color: .cyan,
+            size: 14.0,
+            isSculpt: false
+        )
+    ]
+    @State private var activeStrokePoints: [CGPoint] = []
+    @State private var activeStrokeColor: Color = .cyan
+    @State private var activeStrokeSize: CGFloat = 14.0
+    @State private var brushMode: BrushMode = .paint
+    @State private var brushOrbitMode: Bool = false
+
+    // Model Layers State
+    @State private var isPaintLayerVisible: Bool = true
+    @State private var isWireframeLayerVisible: Bool = true
+    @State private var isBaseMeshLayerVisible: Bool = true
+    @State private var isGizmoLayerVisible: Bool = true
+    @State private var isExplodedView: Bool = false
+    @State private var layerOpacity: [String: Double] = [
+        "paint": 1.0,
+        "wireframe": 0.85,
+        "base": 1.0,
+        "gizmo": 0.7
+    ]
+
     // Tools list matching Stitch specifications
     private let tools: [(name: String, icon: String)] = [
-        ("Extrude", "square.stack.3d.up"),
+        ("Layers", "square.stack.3d.up"),
         ("Sculpt", "paintbrush.pointed.fill"),
         ("Subdivide", "square.grid.3x3"),
         ("Symmetry", "arrow.left.and.right.righttriangle.left.righttriangle.right"),
@@ -52,18 +117,24 @@ public struct VisionFormWorkspaceView: View {
                     .padding(.top, 20)
                     .padding(.horizontal, 32)
 
-                // Middle Studio Row (Left Sidebar, Centered 3D Viewport, Right Inspector)
+                // Middle Studio Row (Left Sidebar, Layers Panel, Centered 3D Viewport, Right Inspector)
                 HStack(alignment: .center, spacing: 16) {
                     // Left Vertical Toolbar - safely inset with 32pt padding
                     leftToolbar
                         .padding(.leading, 32)
 
-                    Spacer(minLength: 20)
+                    // Layers Floating Panel
+                    if showLayersPanel {
+                        layersPanel
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+
+                    Spacer(minLength: 16)
 
                     // 3D Viewport Centerpiece
                     viewportCenter
 
-                    Spacer(minLength: 20)
+                    Spacer(minLength: 16)
 
                     // Right Procedural Inspector Pane
                     if showInspector {
@@ -116,44 +187,455 @@ public struct VisionFormWorkspaceView: View {
 
     // MARK: - Viewport Center 3D Model
     private var viewportCenter: some View {
-        ZStack {
-            // Floor shadow & ambient occlusion glow
-            Ellipse()
-                .fill(Color.black.opacity(0.3))
-                .frame(width: 320, height: 60)
-                .blur(radius: 20)
-                .offset(y: 180)
-
-            // Spatial Ring Gizmo
-            if isGizmoActive {
-                Circle()
-                    .strokeBorder(Color.blue.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
-                    .frame(width: 360, height: 360)
-                Circle()
-                    .strokeBorder(Color.cyan.opacity(0.15), lineWidth: 1)
-                    .frame(width: 440, height: 440)
+        VStack(spacing: 12) {
+            // Floating Brush HUD Palette if Brush or Sculpt tool is active
+            if activeTool == "Brush" || activeTool == "Sculpt" {
+                brushControlHUD
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // Centered Isometric Mesh Preview Object
-            Model3D(named: "Scene", bundle: realityKitContentBundle) { model in
-                model
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 340, height: 340)
-            } placeholder: {
-                isometricPolyhedronView
-            }
-            .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
-            .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        rotationY += Double(value.translation.width) * 0.04
-                        rotationX -= Double(value.translation.height) * 0.04
+            ZStack {
+                // Ambient floor contact shadow
+                if isGizmoLayerVisible {
+                    Ellipse()
+                        .fill(Color.black.opacity(0.3))
+                        .frame(width: 320, height: 60)
+                        .blur(radius: 20)
+                        .offset(y: 180)
+                }
+
+                // Spatial Ring Gizmo Layer
+                if isGizmoActive && isGizmoLayerVisible {
+                    Circle()
+                        .strokeBorder(Color.blue.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
+                        .frame(width: 360, height: 360)
+                        .scaleEffect(isExplodedView ? 1.32 : 1.0)
+                    Circle()
+                        .strokeBorder(Color.cyan.opacity(0.15), lineWidth: 1)
+                        .frame(width: 440, height: 440)
+                        .scaleEffect(isExplodedView ? 1.44 : 1.0)
+                }
+
+                // 3D Model & Interactive Layers Group
+                ZStack {
+                    // Layer 3: Base Geometry Mesh Core
+                    if isBaseMeshLayerVisible {
+                        Model3D(named: "Scene", bundle: realityKitContentBundle) { model in
+                            model
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 340, height: 340)
+                                .opacity(layerOpacity["base"] ?? 1.0)
+                        } placeholder: {
+                            isometricPolyhedronView
+                        }
                     }
-            )
+
+                    // Layer 2: Topology Wireframe Grid
+                    if isWireframeLayerVisible {
+                        WireframeOverlayView(subdivisions: 10)
+                            .frame(width: 340, height: 340)
+                            .scaleEffect(isExplodedView ? 1.22 : 1.0)
+                            .opacity(layerOpacity["wireframe"] ?? 0.85)
+                            .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isExplodedView)
+                    }
+
+                    // Layer 1: Surface Paint & Sculpt Deformation Strokes
+                    if isPaintLayerVisible {
+                        BrushStrokesCanvasView(
+                            strokes: brushStrokes,
+                            activePoints: activeStrokePoints,
+                            activeColor: activeStrokeColor,
+                            activeSize: activeStrokeSize
+                        )
+                        .frame(width: 340, height: 340)
+                        .scaleEffect(isExplodedView ? 1.12 : 1.0)
+                        .opacity(layerOpacity["paint"] ?? 1.0)
+                        .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isExplodedView)
+                    }
+                }
+                .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
+                .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
+                .contentShape(Circle())
+                // Painting & Orbiting Gesture on the 3D Model
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let center = CGPoint(x: 170, y: 170)
+                            let dx = value.location.x - center.x
+                            let dy = value.location.y - center.y
+                            let distFromCenter = sqrt(dx * dx + dy * dy)
+
+                            if (activeTool == "Brush" || activeTool == "Sculpt") && !brushOrbitMode {
+                                if distFromCenter <= 175 {
+                                    if brushMode == .erase {
+                                        brushStrokes.removeAll { stroke in
+                                            stroke.points.contains { pt in
+                                                hypot(pt.x - value.location.x, pt.y - value.location.y) < activeStrokeSize * 1.5
+                                            }
+                                        }
+                                    } else {
+                                        activeStrokePoints.append(value.location)
+                                    }
+                                } else {
+                                    // Touch is outside sphere: rotate model
+                                    rotationY += Double(value.translation.width) * 0.03
+                                    rotationX -= Double(value.translation.height) * 0.03
+                                }
+                            } else {
+                                // Default orbit gesture
+                                rotationY += Double(value.translation.width) * 0.04
+                                rotationX -= Double(value.translation.height) * 0.04
+                            }
+                        }
+                        .onEnded { value in
+                            if (activeTool == "Brush" || activeTool == "Sculpt") && !brushOrbitMode && !activeStrokePoints.isEmpty {
+                                let stroke = BrushStroke(
+                                    points: activeStrokePoints,
+                                    color: activeStrokeColor,
+                                    size: activeStrokeSize,
+                                    isSculpt: brushMode == .sculpt
+                                )
+                                brushStrokes.append(stroke)
+                                activeStrokePoints = []
+                                polyCount += (brushMode == .sculpt ? 320 : 84)
+                            }
+                        }
+                )
+            }
         }
-        .frame(maxWidth: 500, maxHeight: 500)
+        .frame(maxWidth: 500, maxHeight: 560)
+    }
+
+    // MARK: - Brush Control HUD Palette
+    private var brushControlHUD: some View {
+        HStack(spacing: 12) {
+            // Mode Selector: Paint vs Sculpt vs Erase
+            HStack(spacing: 3) {
+                ForEach(BrushMode.allCases, id: \.self) { mode in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            brushMode = mode
+                            if mode == .sculpt { activeTool = "Sculpt" }
+                            else if mode == .paint { activeTool = "Brush" }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 11))
+                            Text(mode.rawValue)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(
+                            brushMode == mode ? Color.cyan.opacity(0.3) : Color.clear
+                        )
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(brushMode == mode ? .white : .white.opacity(0.65))
+                }
+            }
+            .padding(3)
+            .background(Color.white.opacity(0.06))
+            .clipShape(Capsule())
+
+            Divider().frame(height: 18).background(Color.white.opacity(0.2))
+
+            // Color Swatches
+            HStack(spacing: 6) {
+                ForEach([Color.cyan, Color(red: 1.0, green: 0.2, blue: 0.6), Color(red: 1.0, green: 0.8, blue: 0.1), Color(red: 0.2, green: 0.9, blue: 0.4), Color.white], id: \.self) { color in
+                    Button {
+                        activeStrokeColor = color
+                    } label: {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 18, height: 18)
+                            .overlay(
+                                Circle().stroke(Color.white, lineWidth: activeStrokeColor == color ? 2 : 0)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Divider().frame(height: 18).background(Color.white.opacity(0.2))
+
+            // Brush Size Pills
+            HStack(spacing: 4) {
+                ForEach([8, 14, 22], id: \.self) { size in
+                    Button {
+                        activeStrokeSize = CGFloat(size)
+                    } label: {
+                        Text("\(size)px")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(activeStrokeSize == CGFloat(size) ? Color.blue.opacity(0.4) : Color.white.opacity(0.04))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.white)
+                }
+            }
+
+            Divider().frame(height: 18).background(Color.white.opacity(0.2))
+
+            // Draw vs Orbit Toggle Button
+            Button {
+                brushOrbitMode.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: brushOrbitMode ? "arrow.triangle.2.circlepath" : "hand.draw.fill")
+                        .font(.system(size: 11))
+                    Text(brushOrbitMode ? "Orbit" : "Paint")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(brushOrbitMode ? Color.purple.opacity(0.35) : Color.blue.opacity(0.35))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.white)
+
+            // Clear All Strokes Button
+            if !brushStrokes.isEmpty {
+                Button {
+                    withAnimation {
+                        brushStrokes.removeAll()
+                    }
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(6)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Clear Strokes")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .darkBlueTranslucentCapsule()
+    }
+
+    // MARK: - Layers Floating Panel
+    private var layersPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .foregroundColor(.cyan)
+                    Text("Model Layers")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        showLayersPanel = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 24, height: 24)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Exploded 3D Spatial Decomposition Toggle Card
+            Button {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                    isExplodedView.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: isExplodedView ? "arrow.up.and.down.and.arrow.left.and.right" : "square.stack.3d.up")
+                        .font(.system(size: 15))
+                        .foregroundColor(isExplodedView ? .cyan : .white.opacity(0.7))
+                        .frame(width: 30, height: 30)
+                        .background(isExplodedView ? Color.cyan.opacity(0.2) : Color.white.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Spatial Explode View")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text(isExplodedView ? "Layers separated in Z-depth" : "Unified collapsed mesh")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.55))
+                    }
+                    Spacer()
+                    Image(systemName: isExplodedView ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isExplodedView ? .cyan : .white.opacity(0.3))
+                }
+                .padding(9)
+                .background(isExplodedView ? Color.cyan.opacity(0.12) : Color.white.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isExplodedView ? Color.cyan.opacity(0.4) : Color.white.opacity(0.08), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+
+            Divider().background(Color.white.opacity(0.12))
+
+            // Layers List
+            VStack(spacing: 8) {
+                // Layer 1: Surface Paint & Strokes
+                layerRow(
+                    title: "Surface Paint",
+                    subtitle: "\(brushStrokes.count) brush strokes",
+                    icon: "paintbrush.pointed.fill",
+                    iconColor: .cyan,
+                    isVisible: $isPaintLayerVisible,
+                    opacityKey: "paint"
+                )
+
+                // Layer 2: Topology Wireframe
+                layerRow(
+                    title: "Topology Wireframe",
+                    subtitle: "Subdiv Level 2 | 42k polys",
+                    icon: "grid",
+                    iconColor: .blue,
+                    isVisible: $isWireframeLayerVisible,
+                    opacityKey: "wireframe"
+                )
+
+                // Layer 3: Base Geometry Core
+                layerRow(
+                    title: "Base Mesh Core",
+                    subtitle: "Organic Polymer Solid",
+                    icon: "circle.fill",
+                    iconColor: .white,
+                    isVisible: $isBaseMeshLayerVisible,
+                    opacityKey: "base"
+                )
+
+                // Layer 4: Spatial Ring Gizmo
+                layerRow(
+                    title: "Spatial Ring Gizmo",
+                    subtitle: "Axis & Meridian Guides",
+                    icon: "circle.dashed",
+                    iconColor: .cyan,
+                    isVisible: $isGizmoLayerVisible,
+                    opacityKey: "gizmo"
+                )
+            }
+
+            Divider().background(Color.white.opacity(0.12))
+
+            // Quick Actions
+            HStack {
+                Button {
+                    withAnimation {
+                        brushStrokes.append(
+                            BrushStroke(
+                                points: [CGPoint(x: 120, y: 140), CGPoint(x: 170, y: 170), CGPoint(x: 220, y: 150)],
+                                color: activeStrokeColor,
+                                size: activeStrokeSize,
+                                isSculpt: false
+                            )
+                        )
+                    }
+                } label: {
+                    Label("Add Stroke", systemImage: "plus")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button {
+                    withAnimation {
+                        isPaintLayerVisible = true
+                        isWireframeLayerVisible = true
+                        isBaseMeshLayerVisible = true
+                        isGizmoLayerVisible = true
+                    }
+                } label: {
+                    Text("Show All")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(16)
+        .frame(width: 270)
+        .darkBlueTranslucentRounded(cornerRadius: 24)
+    }
+
+    private func layerRow(
+        title: String,
+        subtitle: String,
+        icon: String,
+        iconColor: Color,
+        isVisible: Binding<Bool>,
+        opacityKey: String
+    ) -> some View {
+        VStack(spacing: 5) {
+            HStack(spacing: 9) {
+                // Visibility Eye Toggle Button
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isVisible.wrappedValue.toggle()
+                    }
+                } label: {
+                    Image(systemName: isVisible.wrappedValue ? "eye.fill" : "eye.slash.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(isVisible.wrappedValue ? .white : .white.opacity(0.3))
+                        .frame(width: 26, height: 26)
+                        .background(isVisible.wrappedValue ? Color.blue.opacity(0.25) : Color.white.opacity(0.05))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .foregroundColor(iconColor)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(isVisible.wrappedValue ? .white : .white.opacity(0.4))
+                    Text(subtitle)
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.45))
+                }
+
+                Spacer()
+            }
+
+            // Opacity Slider if visible
+            if isVisible.wrappedValue {
+                HStack(spacing: 6) {
+                    Text("Opacity")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                    Slider(
+                        value: Binding(
+                            get: { layerOpacity[opacityKey] ?? 1.0 },
+                            set: { layerOpacity[opacityKey] = $0 }
+                        ),
+                        in: 0.1...1.0
+                    )
+                    .tint(iconColor)
+                }
+                .padding(.leading, 35)
+            }
+        }
+        .padding(7)
+        .background(Color.white.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     // Fallback Isometric Polyhedron Graphic if 3D bundle asset is loading
@@ -191,13 +673,19 @@ public struct VisionFormWorkspaceView: View {
     private var telemetryTag: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(Color.green)
+                .fill(activeTool == "Brush" ? Color.cyan : Color.green)
                 .frame(width: 8, height: 8)
-                .shadow(color: .green, radius: 4)
+                .shadow(color: activeTool == "Brush" ? .cyan : .green, radius: 4)
 
-            Text("Poly Count: \(polyCount.formatted()) | Scale: 1:1 | X,Y,Z: (\(Int(rotationX)), \(Int(rotationY)), 300)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.85))
+            Text(
+                activeTool == "Brush"
+                    ? "Tool: Brush (\(brushMode.rawValue)) | Strokes: \(brushStrokes.count) | Size: \(Int(activeStrokeSize))px"
+                    : (activeTool == "Layers" || showLayersPanel
+                        ? "Tool: Layers | Mode: \(isExplodedView ? "Exploded 3D" : "Unified") | Active Layers: 4"
+                        : "Poly Count: \(polyCount.formatted()) | Scale: 1:1 | X,Y,Z: (\(Int(rotationX)), \(Int(rotationY)), 300)")
+            )
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundColor(.white.opacity(0.85))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -250,30 +738,41 @@ public struct VisionFormWorkspaceView: View {
     private var leftToolbar: some View {
         VStack(spacing: 12) {
             ForEach(tools, id: \.name) { tool in
-                let isActive = activeTool == tool.name
+                let isActive = activeTool == tool.name || (tool.name == "Layers" && showLayersPanel)
                 Button {
                     activeTool = tool.name
+                    if tool.name == "Layers" || tool.name == "Boolean" {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showLayersPanel.toggle()
+                        }
+                    } else if tool.name == "Brush" {
+                        brushMode = .paint
+                        brushOrbitMode = false
+                    } else if tool.name == "Sculpt" {
+                        brushMode = .sculpt
+                        brushOrbitMode = false
+                    }
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: tool.icon)
                             .font(.system(size: 18))
-                            .foregroundColor(isActive ? .blue : .white.opacity(0.75))
+                            .foregroundColor(isActive ? .cyan : .white.opacity(0.75))
                     }
                     .frame(width: 44, height: 44)
                     .background(
                         isActive
-                            ? Color.blue.opacity(0.25)
+                            ? Color.blue.opacity(0.35)
                             : Color.white.opacity(0.04)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .stroke(
-                                isActive ? Color.blue.opacity(0.5) : Color.white.opacity(0.12),
+                                isActive ? Color.cyan.opacity(0.6) : Color.white.opacity(0.12),
                                 lineWidth: 1
                             )
                     )
-                    .shadow(color: isActive ? Color.blue.opacity(0.3) : .clear, radius: 8)
+                    .shadow(color: isActive ? Color.cyan.opacity(0.3) : .clear, radius: 8)
                 }
                 .buttonStyle(.plain)
                 .help(tool.name)
@@ -385,11 +884,11 @@ public struct VisionFormWorkspaceView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(Color.white.opacity(0.08))
+                .background(Color.blue.opacity(0.2))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -425,16 +924,22 @@ public struct VisionFormWorkspaceView: View {
             // Main Pill Bar
             HStack(spacing: 12) {
                 Button {
-                    // Undo
+                    // Undo last brush stroke
+                    if !brushStrokes.isEmpty {
+                        withAnimation {
+                            _ = brushStrokes.removeLast()
+                        }
+                    }
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
                         .font(.system(size: 16))
                 }
                 .buttonStyle(.bordered)
                 .clipShape(Circle())
+                .disabled(brushStrokes.isEmpty)
 
                 Button {
-                    // Redo
+                    // Redo action
                 } label: {
                     Image(systemName: "arrow.uturn.forward")
                         .font(.system(size: 16))
@@ -536,6 +1041,146 @@ public struct VisionFormWorkspaceView: View {
         .padding(30)
         .frame(width: 480)
         .darkBlueTranslucentRounded(cornerRadius: 32)
+    }
+}
+
+// MARK: - Topology Wireframe Overlay View
+public struct WireframeOverlayView: View {
+    var subdivisions: Int = 10
+
+    public init(subdivisions: Int = 10) {
+        self.subdivisions = subdivisions
+    }
+
+    public var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            ZStack {
+                // Outer glowing rim
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.cyan.opacity(0.55), Color.blue.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+
+                // Concentric Latitude Rings
+                ForEach(1..<subdivisions, id: \.self) { i in
+                    let norm = Double(i) / Double(subdivisions)
+                    let angle = norm * .pi
+                    let yOffset = cos(angle) * (h / 2)
+                    let ringWidth = sin(angle) * w
+                    let ringHeight = max(2, ringWidth * 0.28)
+
+                    Ellipse()
+                        .stroke(Color.cyan.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        .frame(width: ringWidth, height: ringHeight)
+                        .offset(y: yOffset)
+                }
+
+                // Longitude Meridian Curves
+                ForEach(0..<subdivisions, id: \.self) { i in
+                    let angle = Double(i) * (.pi / Double(subdivisions))
+                    let ringWidth = max(2, sin(angle) * w)
+
+                    Ellipse()
+                        .stroke(Color.blue.opacity(0.22), lineWidth: 1)
+                        .frame(width: ringWidth, height: h)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Interactive Brush Strokes Canvas View
+public struct BrushStrokesCanvasView: View {
+    var strokes: [BrushStroke]
+    var activePoints: [CGPoint]
+    var activeColor: Color
+    var activeSize: CGFloat
+
+    public init(strokes: [BrushStroke], activePoints: [CGPoint], activeColor: Color, activeSize: CGFloat) {
+        self.strokes = strokes
+        self.activePoints = activePoints
+        self.activeColor = activeColor
+        self.activeSize = activeSize
+    }
+
+    public var body: some View {
+        Canvas { context, size in
+            // Draw all finalized strokes
+            for stroke in strokes {
+                guard !stroke.points.isEmpty else { continue }
+
+                if stroke.points.count == 1 {
+                    let pt = stroke.points[0]
+                    let rect = CGRect(
+                        x: pt.x - stroke.size / 2,
+                        y: pt.y - stroke.size / 2,
+                        width: stroke.size,
+                        height: stroke.size
+                    )
+                    context.fill(Circle().path(in: rect), with: .color(stroke.color))
+                    if stroke.isSculpt {
+                        let hlRect = CGRect(x: pt.x - stroke.size / 4, y: pt.y - stroke.size / 4, width: stroke.size / 2, height: stroke.size / 2)
+                        context.fill(Circle().path(in: hlRect), with: .color(.white.opacity(0.85)))
+                    }
+                } else {
+                    var path = Path()
+                    path.move(to: stroke.points[0])
+                    for pt in stroke.points.dropFirst() {
+                        path.addLine(to: pt)
+                    }
+
+                    // Stroke base
+                    context.stroke(
+                        path,
+                        with: .color(stroke.color),
+                        style: StrokeStyle(lineWidth: stroke.size, lineCap: .round, lineJoin: .round)
+                    )
+
+                    // 3D Sculpt Specular Ridge Highlight
+                    if stroke.isSculpt {
+                        context.stroke(
+                            path,
+                            with: .color(.white.opacity(0.65)),
+                            style: StrokeStyle(lineWidth: max(2, stroke.size * 0.35), lineCap: .round, lineJoin: .round)
+                        )
+                    }
+                }
+            }
+
+            // Draw active in-progress stroke
+            if !activePoints.isEmpty {
+                if activePoints.count == 1 {
+                    let pt = activePoints[0]
+                    let rect = CGRect(
+                        x: pt.x - activeSize / 2,
+                        y: pt.y - activeSize / 2,
+                        width: activeSize,
+                        height: activeSize
+                    )
+                    context.fill(Circle().path(in: rect), with: .color(activeColor))
+                } else {
+                    var path = Path()
+                    path.move(to: activePoints[0])
+                    for pt in activePoints.dropFirst() {
+                        path.addLine(to: pt)
+                    }
+                    context.stroke(
+                        path,
+                        with: .color(activeColor),
+                        style: StrokeStyle(lineWidth: activeSize, lineCap: .round, lineJoin: .round)
+                    )
+                }
+            }
+        }
+        .clipShape(Circle())
+        .shadow(color: activeColor.opacity(0.35), radius: 6)
     }
 }
 
