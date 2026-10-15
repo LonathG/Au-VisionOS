@@ -12,30 +12,24 @@ import simd
 
 // MARK: - 3D Math & Data Types
 
-public struct Point3D: Hashable, Sendable {
-    public var x: Double
-    public var y: Double
-    public var z: Double
-
-    public init(x: Double, y: Double, z: Double) {
-        self.x = x
-        self.y = y
-        self.z = z
-    }
-}
-
-public struct Surface3DStroke: Identifiable, Hashable, Sendable {
+public struct RealityKitStrokeDab: Identifiable, Hashable, Sendable {
     public let id: UUID
-    public var points: [Point3D]
-    public var color: Color
-    public var size: CGFloat
+    public var position: SIMD3<Float>
+    public var color: UIColor
+    public var radius: Float
     public var isSculpt: Bool
 
-    public init(id: UUID = UUID(), points: [Point3D], color: Color, size: CGFloat, isSculpt: Bool) {
+    public init(
+        id: UUID = UUID(),
+        position: SIMD3<Float>,
+        color: UIColor,
+        radius: Float,
+        isSculpt: Bool = false
+    ) {
         self.id = id
-        self.points = points
+        self.position = position
         self.color = color
-        self.size = size
+        self.radius = radius
         self.isSculpt = isSculpt
     }
 }
@@ -88,49 +82,6 @@ public enum BrushMode: String, CaseIterable, Sendable {
     }
 }
 
-// MARK: - 3D Projection Helpers
-
-/// Projects a 3D point from object space to view space given model rotation angles (in degrees)
-public func projectToView(_ point: Point3D, rotX: Double, rotY: Double) -> (x: Double, y: Double, z: Double) {
-    let alpha = rotX * (.pi / 180.0)
-    let beta = rotY * (.pi / 180.0)
-
-    // Forward X rotation (matching RealityKit qX around +X right-axis: top tilts towards user, front moves down +y in screen coords)
-    let x1 = point.x
-    let y1 = point.y * cos(alpha) + point.z * sin(alpha)
-    let z1 = -point.y * sin(alpha) + point.z * cos(alpha)
-
-    // Forward Y rotation (matching RealityKit qY around +Y up-axis: front moves right +x in screen coords)
-    let xCur = x1 * cos(beta) + z1 * sin(beta)
-    let zCur = -x1 * sin(beta) + z1 * cos(beta)
-    let yCur = y1
-
-    return (x: xCur, y: yCur, z: zCur)
-}
-
-/// Inverses a 2D screen touch on the front hemisphere back to 3D object space coordinates
-public func screenToSphere(screenPoint: CGPoint, rotX: Double, rotY: Double, radius: Double) -> Point3D? {
-    let dx = Double(screenPoint.x - 170.0)
-    let dy = Double(screenPoint.y - 170.0)
-    let r2 = dx * dx + dy * dy
-    guard r2 <= radius * radius else { return nil }
-    let dz = sqrt(max(0.0, radius * radius - r2))
-
-    let alpha = rotX * (.pi / 180.0)
-    let beta = rotY * (.pi / 180.0)
-
-    // Inverse Y rotation (by -beta)
-    let x1 = dx * cos(beta) - dz * sin(beta)
-    let z1 = dx * sin(beta) + dz * cos(beta)
-    let y1 = dy
-
-    // Inverse X rotation (by -alpha)
-    let xObj = x1
-    let yObj = y1 * cos(alpha) - z1 * sin(alpha)
-    let zObj = y1 * sin(alpha) + z1 * cos(alpha)
-
-    return Point3D(x: xObj, y: yObj, z: zObj)
-}
 
 // MARK: - Main VisionForm Workspace View
 
@@ -155,29 +106,45 @@ public struct VisionFormWorkspaceView: View {
     @State private var brushOrbitMode: Bool = false
     @State private var activeStrokeColor: Color = .cyan
     @State private var activeStrokeSize: CGFloat = 14.0
-    @State private var active3DStrokePoints: [Point3D] = []
 
     // Drag & Stroke Interaction Tracking
     @State private var lastDragLocation: CGPoint? = nil
     @State private var isCurrentlyDrawingStroke: Bool = false
 
-    // 3D Surface Strokes (drawn on the 3D product)
-    @State private var strokes3D: [Surface3DStroke] = [
-        Surface3DStroke(
-            points: (0...24).map { i -> Point3D in
-                let t = Double(i) / 24.0
-                let angle = (t - 0.5) * 1.7
-                let radius = 110.0
-                let x = sin(angle) * radius * 0.8
-                let y = (t - 0.5) * 110.0
-                let z = sqrt(max(0.0, radius * radius - x * x - y * y))
-                return Point3D(x: x, y: y, z: z)
-            },
-            color: .cyan,
-            size: 10.0,
-            isSculpt: false
-        )
-    ]
+    // RealityKit 3D Model Paint Strokes
+    @State private var brushDabs: [RealityKitStrokeDab] = VisionFormWorkspaceView.defaultBrushDabs()
+    @State private var currentStrokeDabs: [RealityKitStrokeDab] = []
+
+    private var activeStrokeUIColor: UIColor {
+        if activeStrokeColor == .cyan { return .cyan }
+        if activeStrokeColor == Color(red: 1.0, green: 0.2, blue: 0.6) {
+            return UIColor(red: 1.0, green: 0.2, blue: 0.6, alpha: 1.0)
+        }
+        if activeStrokeColor == Color(red: 1.0, green: 0.8, blue: 0.1) {
+            return UIColor(red: 1.0, green: 0.8, blue: 0.1, alpha: 1.0)
+        }
+        if activeStrokeColor == Color(red: 0.2, green: 0.9, blue: 0.4) {
+            return UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 1.0)
+        }
+        if activeStrokeColor == .white { return .white }
+        return .cyan
+    }
+
+    public static func defaultBrushDabs() -> [RealityKitStrokeDab] {
+        let r: Float = 0.0754
+        let color = UIColor.cyan
+        var dabs: [RealityKitStrokeDab] = []
+        for i in 0...24 {
+            let t = Float(i) / 24.0
+            let phi = Float.pi * (0.32 + t * 0.36)
+            let theta = Float.pi * (0.16 + t * 0.44)
+            let x = r * sin(phi) * cos(theta)
+            let y = r * sin(phi) * sin(theta)
+            let z = r * cos(phi)
+            dabs.append(RealityKitStrokeDab(position: SIMD3<Float>(x, y, z), color: color, radius: 0.0035))
+        }
+        return dabs
+    }
 
     // Material Drag & Drop State
     @State private var isDropTargetActive: Bool = false
@@ -401,7 +368,7 @@ public struct VisionFormWorkspaceView: View {
 
                 // 3D Model & Interactive Layers Group
                 ZStack {
-                    // Layer 3: True 3D RealityKit Model with Dynamic PBR Material Applied to the 3D Geometry
+                    // Layer 1: True 3D RealityKit Model with Dynamic PBR Material & 3D Surface Strokes
                     if isBaseMeshLayerVisible {
                         RealityView { content in
                             let root = Entity()
@@ -423,6 +390,11 @@ public struct VisionFormWorkspaceView: View {
                                 sphere.name = "SphereFallback"
                                 root.addChild(sphere)
                             }
+
+                            // 3D Strokes Container attached directly to the model root
+                            let strokesContainer = Entity()
+                            strokesContainer.name = "StrokesContainer"
+                            root.addChild(strokesContainer)
 
                             removeColliders(from: root)
                             content.add(root)
@@ -448,39 +420,15 @@ public struct VisionFormWorkspaceView: View {
                             pbr.specular = .init(floatLiteral: Float(max(0.0, min(1.0, specular / 10.0))))
 
                             applyMaterialToHierarchy(pbr, to: root)
+
+                            // 4. Synchronize 3D paint stroke entities directly on the 3D model
+                            if let strokesContainer = root.findEntity(named: "StrokesContainer") {
+                                strokesContainer.isEnabled = isPaintLayerVisible
+                                syncStrokeEntities(in: strokesContainer)
+                            }
                         }
                         .frame(width: 340, height: 340)
                         .opacity(layerOpacity["base"] ?? 1.0)
-                        .allowsHitTesting(false)
-                    }
-
-                    // Layer 2: Topology Wireframe Grid
-                    if isWireframeLayerVisible {
-                        WireframeOverlayView(subdivisions: 10)
-                            .frame(width: 220, height: 220)
-                            .scaleEffect(isExplodedView ? 1.2 : 1.0)
-                            .opacity(layerOpacity["wireframe"] ?? 0.85)
-                            .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
-                            .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
-                            .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isExplodedView)
-                            .allowsHitTesting(false)
-                    }
-
-                    // Layer 1: True 3D Surface Paint & Sculpt Strokes
-                    if isPaintLayerVisible {
-                        Surface3DCanvasView(
-                            strokes: strokes3D,
-                            activePoints: active3DStrokePoints,
-                            activeColor: activeStrokeColor,
-                            activeSize: activeStrokeSize,
-                            rotX: rotationX,
-                            rotY: rotationY,
-                            radius: modelRadius
-                        )
-                        .frame(width: 340, height: 340)
-                        .scaleEffect(isExplodedView ? 1.12 : 1.0)
-                        .opacity(layerOpacity["paint"] ?? 1.0)
-                        .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isExplodedView)
                         .allowsHitTesting(false)
                     }
 
@@ -521,51 +469,77 @@ public struct VisionFormWorkspaceView: View {
                         isDropTargetActive = targeted
                     }
                 }
-                // Painting in 3D Product Space & Smooth Orbit
+                // Painting Directly on the 3D Product & Smooth Orbiting
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
                             let center = CGPoint(x: 170.0, y: 170.0)
-                            let radius = modelRadius
-                            let dx = Double(value.location.x - center.x)
-                            let dy = Double(value.location.y - center.y)
+                            let screenRadius: Float = 110.0
+                            let dx = Float(value.location.x - center.x)
+                            let dy = Float(value.location.y - center.y)
                             let r2 = dx * dx + dy * dy
 
                             // Check if drawing mode is active:
                             if isBrushActive && (activeTool == "Brush" || activeTool == "Sculpt") && !brushOrbitMode {
-                                if isCurrentlyDrawingStroke || r2 <= radius * radius {
+                                if isCurrentlyDrawingStroke || r2 <= screenRadius * screenRadius {
                                     isCurrentlyDrawingStroke = true
-                                    let samplePoint: CGPoint
-                                    if r2 <= radius * radius {
-                                        samplePoint = value.location
-                                    } else {
-                                        // Clamp to sphere horizon edge so strokes don't abruptly break
-                                        let factor = (radius - 1.0) / sqrt(r2)
-                                        samplePoint = CGPoint(x: 170.0 + dx * factor, y: 170.0 + dy * factor)
-                                    }
 
-                                    if let pt3D = screenToSphere(
-                                        screenPoint: samplePoint,
-                                        rotX: rotationX,
-                                        rotY: rotationY,
-                                        radius: radius
-                                    ) {
-                                        if brushMode == .erase {
-                                            strokes3D.removeAll { stroke in
-                                                stroke.points.contains { p in
-                                                    let dist = hypot(p.x - pt3D.x, hypot(p.y - pt3D.y, p.z - pt3D.z))
-                                                    return dist < Double(activeStrokeSize) * 1.5
-                                                }
+                                    // Normalize touch point to unit sphere
+                                    let u: Float
+                                    let v: Float
+                                    if r2 <= screenRadius * screenRadius {
+                                        u = dx / screenRadius
+                                        v = -dy / screenRadius // +Y is UP in 3D RealityKit
+                                    } else {
+                                        let dist = sqrt(r2)
+                                        u = (dx / dist) * 0.99
+                                        v = (-dy / dist) * 0.99
+                                    }
+                                    let w = sqrt(max(0.0, 1.0 - (u * u + v * v)))
+                                    let viewNormal = simd_normalize(SIMD3<Float>(u, v, w))
+
+                                    // Transform from View Space to Model Object Space via inverse quaternion
+                                    let radX = Float(rotationX * .pi / 180.0)
+                                    let radY = Float(rotationY * .pi / 180.0)
+                                    let qX = simd_quatf(angle: radX, axis: SIMD3<Float>(1, 0, 0))
+                                    let qY = simd_quatf(angle: radY, axis: SIMD3<Float>(0, 1, 0))
+                                    let qModel = qY * qX
+                                    let qInv = simd_inverse(qModel)
+                                    let objNormal = simd_normalize(simd_act(qInv, viewNormal))
+
+                                    // Sphere radius is 0.075m. Position stroke bead on the 3D model surface:
+                                    let dabRadius: Float = Float(activeStrokeSize) * 0.00032
+                                    let surfacePos = objNormal * (0.0752 + dabRadius * 0.3)
+
+                                    if brushMode == .erase {
+                                        let eraseRadius: Float = 0.018
+                                        brushDabs.removeAll { dab in
+                                            simd_distance(dab.position, surfacePos) < eraseRadius
+                                        }
+                                    } else {
+                                        if let last = currentStrokeDabs.last {
+                                            let d = simd_distance(last.position, surfacePos)
+                                            if d >= 0.0035 {
+                                                let dab = RealityKitStrokeDab(
+                                                    position: surfacePos,
+                                                    color: activeStrokeUIColor,
+                                                    radius: dabRadius,
+                                                    isSculpt: brushMode == .sculpt
+                                                )
+                                                brushDabs.append(dab)
+                                                currentStrokeDabs.append(dab)
+                                                polyCount += (brushMode == .sculpt ? 32 : 12)
                                             }
                                         } else {
-                                            if let last = active3DStrokePoints.last {
-                                                let d = hypot(pt3D.x - last.x, hypot(pt3D.y - last.y, pt3D.z - last.z))
-                                                if d > 2.0 {
-                                                    active3DStrokePoints.append(pt3D)
-                                                }
-                                            } else {
-                                                active3DStrokePoints.append(pt3D)
-                                            }
+                                            let dab = RealityKitStrokeDab(
+                                                position: surfacePos,
+                                                color: activeStrokeUIColor,
+                                                radius: dabRadius,
+                                                isSculpt: brushMode == .sculpt
+                                            )
+                                            brushDabs.append(dab)
+                                            currentStrokeDabs.append(dab)
+                                            polyCount += (brushMode == .sculpt ? 32 : 12)
                                         }
                                     }
                                     lastDragLocation = nil
@@ -593,23 +567,49 @@ public struct VisionFormWorkspaceView: View {
                         .onEnded { _ in
                             isCurrentlyDrawingStroke = false
                             lastDragLocation = nil
-                            if isBrushActive && !active3DStrokePoints.isEmpty {
-                                let stroke = Surface3DStroke(
-                                    points: active3DStrokePoints,
-                                    color: activeStrokeColor,
-                                    size: activeStrokeSize,
-                                    isSculpt: brushMode == .sculpt
-                                )
-                                strokes3D.append(stroke)
-                                active3DStrokePoints = []
-                                polyCount += (brushMode == .sculpt ? 320 : 84)
-                            }
+                            currentStrokeDabs.removeAll()
                         }
                 )
             }
             .frame(width: 340, height: 340)
         }
         .frame(maxWidth: 500, maxHeight: 560)
+    }
+
+    // MARK: - Synchronize RealityKit 3D Stroke Entities on Model Surface
+    private func syncStrokeEntities(in container: Entity) {
+        if container.children.count == brushDabs.count {
+            return
+        }
+
+        let existing = container.children.count
+        if existing < brushDabs.count {
+            for i in existing..<brushDabs.count {
+                let dab = brushDabs[i]
+                let mesh = MeshResource.generateSphere(radius: dab.radius)
+                var mat = PhysicallyBasedMaterial()
+                mat.baseColor = .init(tint: dab.color)
+                mat.roughness = dab.isSculpt ? 0.15 : 0.4
+                mat.metallic = dab.isSculpt ? 0.35 : 0.05
+                let entity = ModelEntity(mesh: mesh, materials: [mat])
+                entity.position = dab.position
+                entity.name = dab.id.uuidString
+                container.addChild(entity)
+            }
+        } else {
+            container.children.removeAll()
+            for dab in brushDabs {
+                let mesh = MeshResource.generateSphere(radius: dab.radius)
+                var mat = PhysicallyBasedMaterial()
+                mat.baseColor = .init(tint: dab.color)
+                mat.roughness = dab.isSculpt ? 0.15 : 0.4
+                mat.metallic = dab.isSculpt ? 0.35 : 0.05
+                let entity = ModelEntity(mesh: mesh, materials: [mat])
+                entity.position = dab.position
+                entity.name = dab.id.uuidString
+                container.addChild(entity)
+            }
+        }
     }
 
     // MARK: - Remove Colliders so RealityKit never blocks SwiftUI gestures
@@ -770,10 +770,10 @@ public struct VisionFormWorkspaceView: View {
                 .help(brushOrbitMode ? "Switch to Draw" : "Switch to Orbit View")
 
                 // Clear Strokes Icon Button
-                if !strokes3D.isEmpty {
+                if !brushDabs.isEmpty {
                     Button {
                         withAnimation {
-                            strokes3D.removeAll()
+                            brushDabs.removeAll()
                         }
                     } label: {
                         Image(systemName: "trash")
@@ -883,21 +883,11 @@ public struct VisionFormWorkspaceView: View {
                 // Layer 1: Surface Paint & Strokes
                 layerRow(
                     title: "Surface Paint 3D",
-                    subtitle: "\(strokes3D.count) 3D strokes",
+                    subtitle: "\(brushDabs.count) 3D dabs on model",
                     icon: "paintbrush.pointed.fill",
                     iconColor: .cyan,
                     isVisible: $isPaintLayerVisible,
                     opacityKey: "paint"
-                )
-
-                // Layer 2: Topology Wireframe
-                layerRow(
-                    title: "Topology Wireframe",
-                    subtitle: "Subdiv Level 2 | 42k polys",
-                    icon: "grid",
-                    iconColor: .blue,
-                    isVisible: $isWireframeLayerVisible,
-                    opacityKey: "wireframe"
                 )
 
                 // Layer 3: Base Geometry Core
@@ -1018,9 +1008,9 @@ public struct VisionFormWorkspaceView: View {
 
             Text(
                 activeTool == "Brush"
-                    ? "Tool: Brush (\(isBrushActive ? "ON" : "OFF")) | 3D Strokes: \(strokes3D.count) | Size: \(Int(activeStrokeSize))px"
+                    ? "Tool: Brush (\(isBrushActive ? "ON" : "OFF")) | 3D Dabs: \(brushDabs.count) | Size: \(Int(activeStrokeSize))px"
                     : (activeTool == "Layers" || showLayersPanel
-                        ? "Tool: Layers | Mode: \(isExplodedView ? "Exploded 3D" : "Unified") | Active Layers: 4"
+                        ? "Tool: Layers | Mode: \(isExplodedView ? "Exploded 3D" : "Unified") | Active Layers: 3"
                         : "Material: \(activeMaterial) | Poly Count: \(polyCount.formatted()) | X,Y,Z: (\(Int(rotationX)), \(Int(rotationY)), 300)")
             )
             .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -1309,10 +1299,11 @@ public struct VisionFormWorkspaceView: View {
             // Main Pill Bar
             HStack(spacing: 12) {
                 Button {
-                    // Undo last 3D stroke
-                    if !strokes3D.isEmpty {
+                    // Undo last 3D stroke dabs
+                    if !brushDabs.isEmpty {
                         withAnimation {
-                            _ = strokes3D.removeLast()
+                            let countToRemove = min(8, brushDabs.count)
+                            brushDabs.removeLast(countToRemove)
                         }
                     }
                 } label: {
@@ -1321,7 +1312,7 @@ public struct VisionFormWorkspaceView: View {
                 }
                 .buttonStyle(.bordered)
                 .clipShape(Circle())
-                .disabled(strokes3D.isEmpty)
+                .disabled(brushDabs.isEmpty)
 
                 Button {
                     // Redo action
@@ -1429,230 +1420,6 @@ public struct VisionFormWorkspaceView: View {
     }
 }
 
-// MARK: - Topology Wireframe Overlay View (Single Canvas Draw Call)
-public struct WireframeOverlayView: View {
-    var subdivisions: Int = 10
-
-    public init(subdivisions: Int = 10) {
-        self.subdivisions = subdivisions
-    }
-
-    public var body: some View {
-        Canvas { context, size in
-            let w = Double(size.width)
-            let h = Double(size.height)
-
-            // Outer glowing rim
-            context.stroke(
-                Circle().path(in: CGRect(x: 0, y: 0, width: w, height: h)),
-                with: .color(Color.cyan.opacity(0.55)),
-                lineWidth: 1.5
-            )
-
-            // Latitude rings
-            for i in 1..<subdivisions {
-                let norm = Double(i) / Double(subdivisions)
-                let angle = norm * .pi
-                let yOffset = cos(angle) * (h / 2.0)
-                let ringWidth = sin(angle) * w
-                let ringHeight = max(2.0, ringWidth * 0.28)
-                let rect = CGRect(
-                    x: (w - ringWidth) / 2.0,
-                    y: (h / 2.0) + yOffset - (ringHeight / 2.0),
-                    width: ringWidth,
-                    height: ringHeight
-                )
-                context.stroke(
-                    Ellipse().path(in: rect),
-                    with: .color(Color.cyan.opacity(0.28)),
-                    style: StrokeStyle(lineWidth: 1, dash: [4, 4])
-                )
-            }
-
-            // Longitude curves
-            for i in 0..<subdivisions {
-                let angle = Double(i) * (.pi / Double(subdivisions))
-                let ringWidth = max(2.0, sin(angle) * w)
-                let rect = CGRect(
-                    x: (w - ringWidth) / 2.0,
-                    y: 0.0,
-                    width: ringWidth,
-                    height: h
-                )
-                context.stroke(
-                    Ellipse().path(in: rect),
-                    with: .color(Color.blue.opacity(0.22)),
-                    lineWidth: 1
-                )
-            }
-        }
-    }
-}
-
-// MARK: - 3D Surface Strokes Canvas View (Rotates in 3D & Clips to Horizon)
-public struct Surface3DCanvasView: View {
-    public var strokes: [Surface3DStroke]
-    public var activePoints: [Point3D]
-    public var activeColor: Color
-    public var activeSize: CGFloat
-    public var rotX: Double
-    public var rotY: Double
-    public var radius: Double
-
-    public init(
-        strokes: [Surface3DStroke],
-        activePoints: [Point3D],
-        activeColor: Color,
-        activeSize: CGFloat,
-        rotX: Double,
-        rotY: Double,
-        radius: Double = 110.0
-    ) {
-        self.strokes = strokes
-        self.activePoints = activePoints
-        self.activeColor = activeColor
-        self.activeSize = activeSize
-        self.rotX = rotX
-        self.rotY = rotY
-        self.radius = radius
-    }
-
-    public var body: some View {
-        Canvas { context, size in
-            let center = CGPoint(x: size.width / 2.0, y: size.height / 2.0)
-
-            // Strictly clip all strokes to the 3D spherical mesh boundary
-            let sphereRect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-            context.clip(to: Path(ellipseIn: sphereRect))
-
-            // Render all completed 3D strokes
-            for stroke in strokes {
-                draw3DStroke(
-                    stroke.points,
-                    color: stroke.color,
-                    size: stroke.size,
-                    isSculpt: stroke.isSculpt,
-                    in: &context,
-                    center: center
-                )
-            }
-
-            // Render in-progress 3D stroke
-            if !activePoints.isEmpty {
-                draw3DStroke(
-                    activePoints,
-                    color: activeColor,
-                    size: activeSize,
-                    isSculpt: false,
-                    in: &context,
-                    center: center
-                )
-            }
-        }
-        .frame(width: 340, height: 340)
-    }
-
-    private func draw3DStroke(
-        _ points: [Point3D],
-        color: Color,
-        size: CGFloat,
-        isSculpt: Bool,
-        in context: inout GraphicsContext,
-        center: CGPoint
-    ) {
-        guard !points.isEmpty else { return }
-
-        // Project all points into current view coordinates
-        let projected = points.map { pt -> (screen: CGPoint, z: Double, normDot: Double) in
-            let proj = projectToView(pt, rotX: rotX, rotY: rotY)
-            let scr = CGPoint(x: center.x + proj.x, y: center.y + proj.y)
-            let lightDot = (-proj.x * 0.3 - proj.y * 0.4 + proj.z * 0.86) / max(1.0, radius)
-            return (screen: scr, z: proj.z, normDot: max(0.0, lightDot))
-        }
-
-        // Single point dab
-        if projected.count == 1 {
-            let p = projected[0]
-            if p.z > -2.0 {
-                let depthScale = max(0.4, (p.z + radius) / (2.0 * radius))
-                let dotSize = size * depthScale
-                let rect = CGRect(
-                    x: p.screen.x - dotSize / 2,
-                    y: p.screen.y - dotSize / 2,
-                    width: dotSize,
-                    height: dotSize
-                )
-                context.fill(Circle().path(in: rect), with: .color(color))
-                if isSculpt {
-                    let hlRect = CGRect(
-                        x: p.screen.x - dotSize / 4,
-                        y: p.screen.y - dotSize / 4,
-                        width: dotSize / 2,
-                        height: dotSize / 2
-                    )
-                    context.fill(Circle().path(in: hlRect), with: .color(.white.opacity(0.85 * p.normDot)))
-                }
-            }
-            return
-        }
-
-        // Draw line segments on visible front hemisphere (z > -2.0)
-        var path = Path()
-        var isDrawing = false
-
-        for i in 0..<(projected.count - 1) {
-            let p1 = projected[i]
-            let p2 = projected[i + 1]
-
-            if p1.z > -2.0 && p2.z > -2.0 {
-                if !isDrawing {
-                    path.move(to: p1.screen)
-                    isDrawing = true
-                }
-                path.addLine(to: p2.screen)
-            } else if p1.z > -2.0 && p2.z <= -2.0 {
-                // Crossing from front to back: clip segment at sphere horizon
-                let denominator = p1.z - p2.z
-                let t = denominator != 0 ? (p1.z + 2.0) / denominator : 0.5
-                let clipX = p1.screen.x + t * (p2.screen.x - p1.screen.x)
-                let clipY = p1.screen.y + t * (p2.screen.y - p1.screen.y)
-                if !isDrawing {
-                    path.move(to: p1.screen)
-                }
-                path.addLine(to: CGPoint(x: clipX, y: clipY))
-                isDrawing = false
-            } else if p1.z <= -2.0 && p2.z > -2.0 {
-                // Crossing from back to front: start at horizon
-                let denominator = p2.z - p1.z
-                let t = denominator != 0 ? (-2.0 - p1.z) / denominator : 0.5
-                let clipX = p1.screen.x + t * (p2.screen.x - p1.screen.x)
-                let clipY = p1.screen.y + t * (p2.screen.y - p1.screen.y)
-                path.move(to: CGPoint(x: clipX, y: clipY))
-                path.addLine(to: p2.screen)
-                isDrawing = true
-            } else {
-                // Back hemisphere: occluded by solid sphere
-                isDrawing = false
-            }
-        }
-
-        // Base 3D surface stroke
-        context.stroke(
-            path,
-            with: .color(color),
-            style: StrokeStyle(lineWidth: size, lineCap: .round, lineJoin: .round)
-        )
-
-        // 3D Sculpt Specular Ridge Highlight
-        if isSculpt {
-            context.stroke(
-                path,
-                with: .color(Color.white.opacity(0.65)),
-                style: StrokeStyle(lineWidth: max(2.0, size * 0.35), lineCap: .round, lineJoin: .round)
-            )
-        }
-    }
-}
 
 // MARK: - Dark Blue Translucent Panel Styling
 extension View {
