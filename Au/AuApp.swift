@@ -17,6 +17,7 @@ struct AuApp: App {
             ContentView()
                 .environment(appModel)
         }
+        .defaultSize(width: 1320, height: 840)
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
             ImmersiveView()

@@ -54,51 +54,53 @@ public struct VisionFormWorkspaceView: View {
                 colors: [Color.blue.opacity(0.12), Color.cyan.opacity(0.04), Color.clear],
                 center: .center,
                 startRadius: 50,
-                endRadius: 500
+                endRadius: 650
             )
             .ignoresSafeArea()
 
-            // Main Spatial Viewport Area
-            viewportArea
-
-            // Top Bar
-            VStack {
+            // Structured Studio Layout (Top Bar, Studio Workspace, Bottom Telemetry)
+            VStack(spacing: 0) {
+                // Top Navigation Bar
                 topBar
-                Spacer()
-            }
+                    .padding(.top, 20)
+                    .padding(.horizontal, 32)
 
-            // Left Vertical Floating Frosted Glass Toolbar
-            HStack {
-                leftToolbar
-                    .padding(.leading, 28)
-                Spacer()
-            }
+                // Middle Studio Row (Left Sidebar, Centered 3D Viewport, Right Inspector)
+                HStack(alignment: .center, spacing: 16) {
+                    // Left Vertical Toolbar - safely inset with 32pt padding
+                    leftToolbar
+                        .padding(.leading, 32)
 
-            // Right Inspector Card (Floating Frosted Glass Pane)
-            if showInspector {
-                HStack {
-                    Spacer()
-                    rightInspector
-                        .padding(.trailing, 28)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
-            } else {
-                HStack {
-                    Spacer()
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            showInspector = true
-                        }
-                    } label: {
-                        Label("Procedural", systemImage: "slider.horizontal.3")
-                            .font(.system(size: 13, weight: .medium))
+                    Spacer(minLength: 20)
+
+                    // 3D Viewport Centerpiece
+                    viewportCenter
+
+                    Spacer(minLength: 20)
+
+                    // Right Procedural Inspector Pane
+                    if showInspector {
+                        rightInspector
+                            .padding(.trailing, 32)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    } else {
+                        reopenInspectorButton
+                            .padding(.trailing, 32)
+                            .transition(.opacity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.blue.opacity(0.3))
-                    .padding(.trailing, 28)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Bottom Telemetry Tag
+                HStack {
+                    telemetryTag
+                        .padding(.leading, 36)
+                        .padding(.bottom, 24)
+                    Spacer()
                 }
             }
         }
+        .frame(minWidth: 1100, minHeight: 760)
         // Bottom Floating Control Strip Ornament
         .ornament(attachmentAnchor: .scene(.bottom)) {
             bottomControlStrip
@@ -108,61 +110,60 @@ public struct VisionFormWorkspaceView: View {
         }
     }
 
-    // MARK: - Viewport Area
-    private var viewportArea: some View {
-        ZStack {
-            // 3D Model / RealityKit Preview Centered
-            VStack(spacing: 20) {
-                ZStack {
-                    // Floor shadow & ambient occlusion glow
-                    Ellipse()
-                        .fill(Color.black.opacity(0.75))
-                        .frame(width: 320, height: 60)
-                        .blur(radius: 20)
-                        .offset(y: 180)
-
-                    // Spatial Ring Gizmo
-                    if isGizmoActive {
-                        Circle()
-                            .strokeBorder(Color.blue.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
-                            .frame(width: 360, height: 360)
-                        Circle()
-                            .strokeBorder(Color.cyan.opacity(0.15), lineWidth: 1)
-                            .frame(width: 440, height: 440)
-                    }
-
-                    // Centered Isometric Mesh Preview Object
-                    Model3D(named: "Scene", bundle: realityKitContentBundle) { model in
-                        model
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 340, height: 340)
-                    } placeholder: {
-                        isometricPolyhedronView
-                    }
-                    .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
-                    .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                rotationY += Double(value.translation.width) * 0.04
-                                rotationX -= Double(value.translation.height) * 0.04
-                            }
-                    )
-                }
+    // MARK: - Reopen Inspector Button
+    private var reopenInspectorButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                showInspector = true
             }
-
-            // Bottom-Left Floating Telemetry Tag
-            VStack {
-                Spacer()
-                HStack {
-                    telemetryTag
-                        .padding(.leading, 32)
-                        .padding(.bottom, 24)
-                    Spacer()
-                }
-            }
+        } label: {
+            Label("Procedural", systemImage: "slider.horizontal.3")
+                .font(.system(size: 13, weight: .medium))
         }
+        .buttonStyle(.borderedProminent)
+        .tint(.blue.opacity(0.3))
+    }
+
+    // MARK: - Viewport Center 3D Model
+    private var viewportCenter: some View {
+        ZStack {
+            // Floor shadow & ambient occlusion glow
+            Ellipse()
+                .fill(Color.black.opacity(0.75))
+                .frame(width: 320, height: 60)
+                .blur(radius: 20)
+                .offset(y: 180)
+
+            // Spatial Ring Gizmo
+            if isGizmoActive {
+                Circle()
+                    .strokeBorder(Color.blue.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
+                    .frame(width: 360, height: 360)
+                Circle()
+                    .strokeBorder(Color.cyan.opacity(0.15), lineWidth: 1)
+                    .frame(width: 440, height: 440)
+            }
+
+            // Centered Isometric Mesh Preview Object
+            Model3D(named: "Scene", bundle: realityKitContentBundle) { model in
+                model
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 340, height: 340)
+            } placeholder: {
+                isometricPolyhedronView
+            }
+            .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
+            .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        rotationY += Double(value.translation.width) * 0.04
+                        rotationX -= Double(value.translation.height) * 0.04
+                    }
+            )
+        }
+        .frame(maxWidth: 500, maxHeight: 500)
     }
 
     // Fallback Isometric Polyhedron Graphic if 3D bundle asset is loading
@@ -261,8 +262,6 @@ public struct VisionFormWorkspaceView: View {
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
-        .padding(.top, 24)
-        .padding(.horizontal, 48)
     }
 
     // MARK: - Left Vertical Toolbar

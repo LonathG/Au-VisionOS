@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VisionForm - Spatial 3D Studio</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-primary-fixed-variant": "#00468d",
+            "outline-variant": "#414754",
+            "inverse-primary": "#005db8",
+            "on-tertiary": "#1000a9",
+            "surface-container-highest": "#32353a",
+            "surface-variant": "#32353a",
+            "on-tertiary-container": "#0d0096",
+            "primary-fixed-dim": "#aac7ff",
+            "on-error": "#690005",
+            "tertiary-fixed": "#e1e0ff",
+            "secondary-fixed-dim": "#7bd0ff",
+            "on-secondary-container": "#00374d",
+            "on-surface": "#e1e2e8",
+            "surface-tint": "#aac7ff",
+            "surface-container-lowest": "#0b0e12",
+            "primary": "#aac7ff",
+            "tertiary-fixed-dim": "#c0c1ff",
+            "on-secondary-fixed": "#001e2c",
+            "on-background": "#e1e2e8",
+            "on-tertiary-fixed": "#07006c",
+            "surface-container-low": "#191c20",
+            "inverse-on-surface": "#2e3135",
+            "secondary-container": "#00a6e0",
+            "outline": "#8b91a0",
+            "on-primary-container": "#002957",
+            "background": "#111418",
+            "on-error-container": "#ffdad6",
+            "surface": "#111418",
+            "surface-bright": "#36393e",
+            "inverse-surface": "#e1e2e8",
+            "on-primary-fixed": "#001b3e",
+            "primary-container": "#3e90ff",
+            "secondary-fixed": "#c4e7ff",
+            "on-secondary": "#00354a",
+            "surface-dim": "#111418",
+            "on-secondary-fixed-variant": "#004c69",
+            "surface-container-high": "#272a2f",
+            "tertiary": "#c0c1ff",
+            "error-container": "#93000a",
+            "primary-fixed": "#d6e3ff",
+            "on-primary": "#003064",
+            "on-surface-variant": "#c0c6d6",
+            "secondary": "#7bd0ff",
+            "on-tertiary-fixed-variant": "#2f2ebe",
+            "tertiary-container": "#8083ff",
+            "error": "#ffb4ab",
+            "surface-container": "#1d2024"
+          },
+          "borderRadius": {
+            "DEFAULT": "1rem",
+            "lg": "2rem",
+            "xl": "3rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin-spatial": "3rem",
+            "gutter-spatial": "1.5rem",
+            "space-xs": "0.25rem",
+            "space-xl": "2.5rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.5rem",
+            "space-md": "1rem",
+            "margin": "2rem",
+            "gutter": "1rem"
+          },
+          "fontFamily": {
+            "headline-md": ["Inter"],
+            "label-spatial": ["Inter"],
+            "body-lg": ["Inter"],
+            "telemetry-sm": ["JetBrains Mono"],
+            "headline-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "display-spatial": ["Inter"],
+            "telemetry-lg": ["JetBrains Mono"],
+            "headline-sm": ["Inter"]
+          },
+          "fontSize": {
+            "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "label-spatial": ["11px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "600" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "telemetry-sm": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+            "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.015em", "fontWeight": "600" }],
+            "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "display-spatial": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "telemetry-lg": ["14px", { "lineHeight": "18px", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+            "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "500" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    
+    /* 3D Perspective Infinite Grid */
+    .spatial-grid-floor {
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 50px 50px;
+      transform: perspective(1000px) rotateX(68deg) translateY(120px) scale(2.2);
+      transform-origin: 50% 90%;
+      mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black 20%, transparent 90%);
+    }
+
+    /* Ray specular reflections */
+    .glass-slab {
+      position: relative;
+      background: rgba(25, 28, 32, 0.55);
+      backdrop-filter: blur(40px) saturate(160%);
+      -webkit-backdrop-filter: blur(40px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+        0 24px 60px -12px rgba(0, 0, 0, 0.85);
+    }
+
+    .glass-ornament {
+      background: rgba(29, 32, 36, 0.65);
+      backdrop-filter: blur(32px) saturate(180%);
+      -webkit-backdrop-filter: blur(32px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 
+        inset 0 1px 0.5px rgba(255, 255, 255, 0.3),
+        0 16px 36px -8px rgba(0, 0, 0, 0.7);
+    }
+
+    /* Slider track visual */
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 9999px;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(170, 199, 255, 0.8), 0 2px 4px rgba(0,0,0,0.5);
+      cursor: pointer;
+      border: 1px solid #aac7ff;
+      margin-top: -5px;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      border: none;
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface overflow-hidden w-screen h-screen select-none font-body-md antialiased flex flex-col justify-between">
+<!-- ================= SPATIAL AMBIENT VOID VIEWPORT ================= -->
+<div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+<!-- Atmospheric Ambient Lighting Blooms -->
+<div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[550px] bg-primary-container/10 rounded-full blur-[140px]"></div>
+<div class="absolute top-1/3 -right-20 w-[600px] h-[600px] bg-secondary-container/10 rounded-full blur-[160px]"></div>
+<div class="absolute -bottom-20 left-1/4 w-[750px] h-[500px] bg-tertiary-container/5 rounded-full blur-[180px]"></div>
+<!-- Receding Floor Grid in 3D Perspective -->
+<div class="absolute inset-0 spatial-grid-floor opacity-40"></div>
+<!-- Viewport Axis Indicator (Top Right Subtle) -->
+<div class="absolute top-28 right-96 pointer-events-auto opacity-75 hover:opacity-100 transition-opacity">
+<div class="relative w-16 h-16 flex items-center justify-center">
+<svg class="w-full h-full" fill="none" viewbox="0 0 64 64">
+<!-- X Axis (Coral Red) -->
+<line stroke="#EF4444" stroke-linecap="round" stroke-width="2" x1="32" x2="54" y1="32" y2="38"></line>
+<circle cx="54" cy="38" fill="#EF4444" r="3"></circle>
+<text class="text-[9px] font-mono font-bold" fill="#EF4444" x="56" y="36">X</text>
+<!-- Y Axis (Emerald Green) -->
+<line stroke="#22C55E" stroke-linecap="round" stroke-width="2" x1="32" x2="32" y1="32" y2="10"></line>
+<circle cx="32" cy="10" fill="#22C55E" r="3"></circle>
+<text class="text-[9px] font-mono font-bold" fill="#22C55E" x="36" y="12">Y</text>
+<!-- Z Axis (Sky Blue) -->
+<line stroke="#38BDF8" stroke-linecap="round" stroke-width="2" x1="32" x2="16" y1="32" y2="44"></line>
+<circle cx="16" cy="44" fill="#38BDF8" r="3"></circle>
+<text class="text-[9px] font-mono font-bold" fill="#38BDF8" x="8" y="50">Z</text>
+<circle cx="32" cy="32" fill="#FFFFFF" opacity="0.8" r="2.5"></circle>
+</svg>
+</div>
+</div>
+</div>
+<!-- ================= TOP NAVIGATION BAR (JSON COMPONENT ANCHOR) ================= -->
+<!-- Using exact JSON classes and keys for TopNavBar -->
+<header class="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between px-6 py-2.5 w-[calc(100%-4rem)] max-w-6xl bg-surface-container-low/70 dark:bg-surface-container-low/70 backdrop-blur-2xl rounded-full border border-outline-variant/30 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)]">
+<!-- Brand / Identity -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-lg shadow-primary-container/30">
+<span class="material-symbols-outlined text-on-primary text-base font-bold" data-icon="deployed_code">deployed_code</span>
+</div>
+<span class="text-headline-sm font-headline-sm tracking-tight text-on-surface dark:text-on-surface">VisionForm</span>
+</div>
+<!-- File Title Meta Badge -->
+<div class="hidden sm:flex items-center gap-2 pl-3 ml-2 border-l border-outline-variant/30">
+<span class="text-body-sm font-body-sm text-on-surface font-medium">Sculpt_NeoStructure_v4.vfm</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-surface-bright/50 text-primary border border-outline-variant/40">100%</span>
+<span class="flex items-center gap-1 text-label-spatial font-label-spatial text-secondary">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          Live Sync
+        </span>
+</div>
+</div>
+<!-- JSON Navigation Links (Active State: Mesh) -->
+<nav class="flex items-center gap-6">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-colors duration-150 text-label-spatial font-label-spatial tracking-wider" href="#">Scene</a>
+<a class="text-primary dark:text-primary font-semibold relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-primary text-label-spatial font-label-spatial tracking-wider" href="#">Mesh</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-colors duration-150 text-label-spatial font-label-spatial tracking-wider" href="#">Materials</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-colors duration-150 text-label-spatial font-label-spatial tracking-wider" href="#">Render</a>
+</nav>
+<!-- Trailing Actions from JSON -->
+<div class="flex items-center gap-3">
+<button class="px-3.5 py-1.5 rounded-full text-label-spatial font-label-spatial tracking-wider text-on-surface-variant hover:bg-surface-bright/40 dark:hover:bg-surface-bright/40 hover:text-on-surface transition-all duration-200 active:scale-95">
+        Collaborate
+      </button>
+<button class="px-4 py-1.5 rounded-full text-label-spatial font-label-spatial tracking-wider bg-primary-container text-on-primary-container font-semibold hover:brightness-110 shadow-md shadow-primary-container/20 active:scale-95 transition-all">
+        Present
+      </button>
+<!-- Trailing Icon Actions -->
+<div class="flex items-center gap-1 pl-2 border-l border-outline-variant/30">
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/40 rounded-full transition-all" title="Split Screen">
+<span class="material-symbols-outlined text-lg" data-icon="splitscreen">splitscreen</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-error hover:bg-surface-bright/40 rounded-full transition-all" title="Close Window">
+<span class="material-symbols-outlined text-lg" data-icon="close">close</span>
+</button>
+</div>
+</div>
+</header>
+<!-- ================= MAIN 3D VIEWPORT CANVAS (CENTERPIECE) ================= -->
+<main class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden z-10 pt-20 pb-24">
+<!-- Central 3D Mesh Model Presentation Object -->
+<div class="relative w-full max-w-4xl h-[560px] flex items-center justify-center">
+<!-- Ambient Floor Contact Glow & Occlusion -->
+<div class="absolute bottom-16 w-80 h-16 bg-black/80 blur-2xl rounded-full transform scale-y-50"></div>
+<div class="absolute bottom-20 w-96 h-12 bg-primary/10 blur-3xl rounded-full"></div>
+<!-- Complex Generative 3D Wireframe / Shaded Mesh Artwork (SVG Spatial Representation) -->
+<div id="model-wrapper" class="relative w-[480px] h-[480px] flex items-center justify-center transition-transform hover:scale-[1.02] duration-300 ease-out cursor-grab active:cursor-grabbing select-none" style="transform-style: preserve-3d; transition: transform 0.1s ease-out;">
+<!-- Render Layer: Synthetic Specular Shading & Polygonal Structure -->
+<svg id="mesh-svg" class="w-full h-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)]" fill="none" viewbox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<lineargradient gradientunits="userSpaceOnUse" id="primaryMeshGrad" x1="50" x2="450" y1="40" y2="460">
+<stop id="grad-stop-1" offset="0%" stop-color="#AAC7FF" stop-opacity="0.85"></stop>
+<stop id="grad-stop-2" offset="45%" stop-color="#3E90FF" stop-opacity="0.7"></stop>
+<stop id="grad-stop-3" offset="70%" stop-color="#7BD0FF" stop-opacity="0.9"></stop>
+<stop id="grad-stop-4" offset="100%" stop-color="#8083FF" stop-opacity="0.4"></stop>
+</lineargradient>
+<lineargradient gradientunits="userSpaceOnUse" id="rimSpecularGrad" x1="120" x2="380" y1="80" y2="420">
+<stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"></stop>
+<stop offset="30%" stop-color="#AAC7FF" stop-opacity="0.4"></stop>
+<stop offset="100%" stop-color="#111418" stop-opacity="0.8"></stop>
+</lineargradient>
+<radialgradient cx="50%" cy="50%" id="aoCoreGlow" r="50%">
+<stop offset="0%" stop-color="#00A6E0" stop-opacity="0.25"></stop>
+<stop offset="75%" stop-color="#000000" stop-opacity="0.7"></stop>
+<stop offset="100%" stop-color="#000000" stop-opacity="0"></stop>
+</radialgradient>
+<filter height="140%" id="softGlow" width="140%" x="-20%" y="-20%">
+<fegaussianblur result="blur" stddeviation="12"></fegaussianblur>
+<fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
+</filter>
+</defs>
+<!-- Core Ambient Glow -->
+<circle cx="250" cy="250" fill="url(#aoCoreGlow)" r="140"></circle>
+<!-- Back Polygons with Ambient Occlusion Shading -->
+<polygon fill="#191C20" opacity="0.6" points="250,80 370,150 330,280 250,220" stroke="#414754" stroke-width="1.2"></polygon>
+<polygon fill="#1D2024" opacity="0.6" points="250,80 130,150 170,280 250,220" stroke="#414754" stroke-width="1.2"></polygon>
+<polygon fill="#111418" opacity="0.7" points="130,150 70,270 170,380 170,280" stroke="#32353A" stroke-width="1.2"></polygon>
+<polygon fill="#191C20" opacity="0.7" points="370,150 430,270 330,380 330,280" stroke="#32353A" stroke-width="1.2"></polygon>
+<!-- Primary Sculpted Facets (Sculpt NeoStructure Hard-Surface Toroid) -->
+<polygon fill="url(#primaryMeshGrad)" opacity="0.85" points="250,110 340,165 300,260 250,210" stroke="#FFFFFF" stroke-width="0.8"></polygon>
+<polygon fill="url(#rimSpecularGrad)" opacity="0.9" points="250,110 160,165 200,260 250,210" stroke="#AAC7FF" stroke-width="1"></polygon>
+<!-- Mid Organic Bridges & Wireframe Lattice -->
+<polygon fill="#272A2F" opacity="0.8" points="160,165 200,260 140,340 100,250" stroke="#7BD0FF" stroke-width="0.75"></polygon>
+<polygon fill="#32353A" opacity="0.8" points="340,165 300,260 360,340 400,250" stroke="#7BD0FF" stroke-width="0.75"></polygon>
+<!-- Front Focal Prism (Subdivided Organic Node) -->
+<polygon fill="url(#primaryMeshGrad)" opacity="0.95" points="250,210 300,260 250,370 200,260" stroke="#FFFFFF" stroke-width="1.5"></polygon>
+<polygon fill="#191C20" opacity="0.85" points="200,260 250,370 170,410 140,340" stroke="#AAC7FF" stroke-width="0.9"></polygon>
+<polygon fill="#272A2F" opacity="0.85" points="300,260 250,370 330,410 360,340" stroke="#AAC7FF" stroke-width="0.9"></polygon>
+<!-- Base Grounding Geometry -->
+<polygon fill="url(#rimSpecularGrad)" opacity="0.9" points="250,370 330,410 250,440 170,410" stroke="#FFFFFF" stroke-width="1.2"></polygon>
+<!-- Wireframe Sub-D Overlay Lines -->
+<!-- Lattice Ring 1 -->
+<line opacity="0.8" stroke="#FFFFFF" stroke-dasharray="3 3" stroke-width="1.2" x1="250" x2="250" y1="110" y2="210"></line>
+<line opacity="0.9" stroke="#AAC7FF" stroke-width="1.5" x1="250" x2="250" y1="210" y2="370"></line>
+<line opacity="0.8" stroke="#7BD0FF" stroke-width="1.2" x1="200" x2="300" y1="260" y2="260"></line>
+<line opacity="0.5" stroke="#FFFFFF" stroke-width="0.75" x1="160" x2="340" y1="165" y2="165"></line>
+<!-- Precision Vertices (Spatial Point Snaps) -->
+<circle cx="250" cy="110" fill="#FFFFFF" r="3.5" stroke="#00A6E0" stroke-width="1.5"></circle>
+<circle cx="250" cy="210" fill="#AAC7FF" r="4.5" stroke="#00354A" stroke-width="2"></circle>
+<circle cx="200" cy="260" fill="#FFFFFF" r="3.5" stroke="#3E90FF" stroke-width="1.5"></circle>
+<circle cx="300" cy="260" fill="#FFFFFF" r="3.5" stroke="#3E90FF" stroke-width="1.5"></circle>
+<circle cx="250" cy="370" fill="#38BDF8" r="5" stroke="#FFFFFF" stroke-width="1.5"></circle>
+<circle cx="170" cy="410" fill="#AAC7FF" r="3"></circle>
+<circle cx="330" cy="410" fill="#AAC7FF" r="3"></circle>
+<circle cx="250" cy="440" fill="#FFFFFF" r="3.5"></circle>
+</svg>
+<!-- Interactive Spatial Ring Gizmo Center (Ocular Focus Point) -->
+<div id="gizmo-rings" class="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300">
+<div class="w-64 h-64 rounded-full border border-primary/30 animate-[spin_40s_linear_infinite] border-dashed"></div>
+<div class="w-80 h-80 rounded-full border border-secondary/20 animate-[spin_60s_linear_infinite_reverse]"></div>
+</div>
+</div>
+</div>
+<!-- ================= BOTTOM-LEFT HUD: TELEMETRY CARD ================= -->
+<div class="absolute bottom-10 left-12 z-30 glass-slab rounded-2xl px-4 py-3 border border-outline-variant/30 flex items-center gap-4 text-telemetry-sm font-telemetry-sm shadow-2xl">
+<div class="flex items-center gap-2 pr-3 border-r border-outline-variant/30">
+<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#22C55E]"></span>
+<span class="text-on-surface font-medium">VIEWPORT ACTIVE</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span>Poly Count: <strong class="text-on-surface font-mono">42,804</strong></span>
+<span class="opacity-30">•</span>
+<span>Scale: <strong class="text-on-surface font-mono">1:1</strong></span>
+<span class="opacity-30">•</span>
+<div class="flex items-center gap-1.5 font-mono">
+<span>X,Y,Z:</span>
+(<span id="telemetry-x" class="text-red-400 font-semibold">-2</span>,
+<span id="telemetry-y" class="text-emerald-400 font-semibold">-2</span>,
+<span id="telemetry-z" class="text-sky-400 font-semibold">300</span>)
+</div>
+</div>
+<div class="flex items-center gap-1 pl-2 border-l border-outline-variant/30 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm text-secondary" data-icon="videocam">videocam</span>
+<span class="text-[10px] uppercase tracking-wider font-semibold">Focal 50mm</span>
+</div>
+</div>
+</main>
+<!-- ================= LEFT VERTICAL TOOLBAR (JSON COMPONENT ANCHOR: SideNavBar) ================= -->
+<!-- Executed using exact JSON keys for SideNavBar tab structure & style -->
+<aside class="fixed left-8 top-28 bottom-28 w-20 z-40 flex flex-col items-center justify-between py-6 bg-surface-container/60 dark:bg-surface-container/60 backdrop-blur-2xl rounded-2xl border border-outline-variant/30 shadow-[0_16px_32px_-8px_rgba(0,0,0,0.6)]">
+<!-- Header Glyph / Anchor -->
+<div class="flex flex-col items-center">
+<div class="w-11 h-11 rounded-xl bg-surface-bright/40 flex items-center justify-center text-primary border border-outline-variant/30 hover:scale-105 transition-transform cursor-pointer" title="Geometry: Sub-D v4.2">
+<span class="material-symbols-outlined text-2xl" data-icon="deployed_code">deployed_code</span>
+</div>
+<span class="text-[9px] font-semibold text-on-surface-variant tracking-wider mt-1.5 uppercase font-mono">Sub-D</span>
+</div>
+<!-- Core Tool Tabs (Extrude, Sculpt, Subdivide, Symmetry, Bevel, Brush, Boolean) -->
+<div id="tool-tabs" class="flex flex-col items-center gap-2 my-auto w-full px-2">
+<!-- Extrude -->
+<button data-tool="Extrude" class="tool-btn w-11 h-11 flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/20 rounded-xl hover:scale-105 transition-all duration-200 active:scale-90" title="Extrude">
+<span class="material-symbols-outlined text-xl">view_in_ar</span>
+</button>
+<!-- Sculpt (Active State: Subtle Translucent Blue Highlight #0A84FF) -->
+<button data-tool="Sculpt" class="tool-btn active-tool w-11 h-11 flex flex-col items-center justify-center bg-primary-container/20 text-primary rounded-xl border border-primary/40 shadow-inner relative hover:scale-105 transition-all duration-200 active:scale-90 shadow-[0_0_16px_rgba(170,199,255,0.35)]" title="Sculpt (Active)">
+<span class="material-symbols-outlined text-xl">brush</span>
+<span class="absolute -right-1 top-1.5 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_#aac7ff]"></span>
+</button>
+<!-- Subdivide -->
+<button data-tool="Subdivide" class="tool-btn w-11 h-11 flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/20 rounded-xl hover:scale-105 transition-all duration-200 active:scale-90" title="Subdivide">
+<span class="material-symbols-outlined text-xl">grid_view</span>
+</button>
+<!-- Symmetry -->
+<button data-tool="Symmetry" class="tool-btn w-11 h-11 flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/20 rounded-xl hover:scale-105 transition-all duration-200 active:scale-90" title="Symmetry">
+<span class="material-symbols-outlined text-xl">flip</span>
+</button>
+<!-- Bevel -->
+<button data-tool="Bevel" class="tool-btn w-11 h-11 flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/20 rounded-xl hover:scale-105 transition-all duration-200 active:scale-90" title="Bevel">
+<span class="material-symbols-outlined text-xl">rounded_corner</span>
+</button>
+<!-- Brush -->
+<button data-tool="Brush" class="tool-btn w-11 h-11 flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/20 rounded-xl hover:scale-105 transition-all duration-200 active:scale-90" title="Brush">
+<span class="material-symbols-outlined text-xl">draw</span>
+</button>
+<!-- Boolean -->
+<button data-tool="Boolean" class="tool-btn w-11 h-11 flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/20 rounded-xl hover:scale-105 transition-all duration-200 active:scale-90" title="Boolean">
+<span class="material-symbols-outlined text-xl">layers</span>
+</button>
+</div>
+<!-- Footer Controls (Viewport Camera & Display Modes) -->
+<div class="flex flex-col items-center gap-2 pt-2 border-t border-outline-variant/30 w-full px-2">
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/30 rounded-xl transition-all" title="Viewport Camera">
+<span class="material-symbols-outlined text-lg" data-icon="videocam">videocam</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-bright/30 rounded-xl transition-all" title="Display Modes">
+<span class="material-symbols-outlined text-lg" data-icon="lightbulb">lightbulb</span>
+</button>
+</div>
+</aside>
+<!-- ================= RIGHT INSPECTOR CARD (FLOATING FROSTED GLASS PANE) ================= -->
+<aside id="inspector-pane" class="fixed right-8 top-28 w-84 z-40 glass-slab rounded-3xl p-5 border border-outline-variant/30 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)] flex flex-col gap-5 text-on-surface max-h-[calc(100vh-10rem)] overflow-y-auto transition-all duration-300">
+<!-- Inspector Header -->
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant/20">
+<div>
+<h2 class="text-headline-sm font-headline-sm text-on-surface tracking-tight">Procedural</h2>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Shader &amp; Surface</p>
+</div>
+<button id="btn-close-inspector" class="w-8 h-8 rounded-full bg-surface-bright/30 hover:bg-surface-bright/60 text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors" title="Close Panel">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+<!-- Material Sphere Swatches Section -->
+<div class="flex flex-col gap-2.5">
+<label class="text-label-spatial font-label-spatial text-on-surface-variant uppercase tracking-wider">Active Material</label>
+<div class="grid grid-cols-3 gap-3">
+<!-- Swatch 1: Brushed Steel -->
+<button id="swatch-steel" data-material="steel" class="swatch-btn group flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-surface-container-high/40 hover:bg-surface-container-high/80 border border-outline-variant/20 transition-all text-center">
+<div class="w-12 h-12 rounded-full relative overflow-hidden shadow-md bg-gradient-to-tr from-slate-600 via-slate-300 to-zinc-400 border border-white/20 group-hover:scale-105 transition-transform">
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent transform -rotate-45"></div>
+</div>
+<span class="text-[10px] font-medium text-on-surface-variant group-hover:text-on-surface">Brushed Steel</span>
+</button>
+<!-- Swatch 2: Organic Polymer (ACTIVE SELECTED STATE) -->
+<button id="swatch-polymer" data-material="polymer" class="swatch-btn group flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-primary-container/15 border-2 border-primary shadow-[0_0_14px_rgba(62,144,255,0.3)] transition-all text-center">
+<div class="w-12 h-12 rounded-full relative overflow-hidden shadow-lg bg-gradient-to-tr from-amber-600 via-rose-400 to-primary-container border border-white/40 scale-105">
+<div class="absolute inset-1 rounded-full bg-gradient-to-b from-rose-200/60 to-transparent blur-xs"></div>
+<div class="absolute top-1 right-2 w-3 h-2 rounded-full bg-white/70 blur-[0.5px]"></div>
+</div>
+<span class="text-[10px] font-semibold text-primary">Organic Polymer</span>
+</button>
+<!-- Swatch 3: Carbon Fiber -->
+<button id="swatch-carbon" data-material="carbon" class="swatch-btn group flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-surface-container-high/40 hover:bg-surface-container-high/80 border border-outline-variant/20 transition-all text-center">
+<div class="w-12 h-12 rounded-full relative overflow-hidden shadow-md bg-neutral-900 border border-white/10 group-hover:scale-105 transition-transform flex items-center justify-center">
+<div class="w-full h-full opacity-40 bg-[radial-gradient(#8b91a0_1px,transparent_1px)] [background-size:4px_4px]"></div>
+<div class="absolute top-1.5 right-2 w-3 h-1.5 rounded-full bg-white/40 blur-[0.5px]"></div>
+</div>
+<span class="text-[10px] font-medium text-on-surface-variant group-hover:text-on-surface">Carbon Fiber</span>
+</button>
+</div>
+</div>
+<!-- Precision Parameter Sliders -->
+<div class="flex flex-col gap-4 pt-1">
+<!-- Roughness Slider -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<span class="text-on-surface-variant font-medium">Roughness</span>
+<span id="val-roughness" class="text-telemetry-sm font-telemetry-sm text-primary font-mono px-2 py-0.5 rounded bg-surface-container-highest/60 border border-outline-variant/30">43.0</span>
+</div>
+<div class="relative flex items-center">
+<input id="slider-roughness" class="w-full h-2 bg-surface-container-highest rounded-lg appearance-none cursor-pointer focus:outline-none" max="100" min="0" step="0.5" type="range" value="43"/>
+</div>
+</div>
+<!-- Metallic Slider -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<span class="text-on-surface-variant font-medium">Metallic</span>
+<span id="val-metallic" class="text-telemetry-sm font-telemetry-sm text-primary font-mono px-2 py-0.5 rounded bg-surface-container-highest/60 border border-outline-variant/30">10.5</span>
+</div>
+<div class="relative flex items-center">
+<input id="slider-metallic" class="w-full h-2 bg-surface-container-highest rounded-lg appearance-none cursor-pointer focus:outline-none" max="100" min="0" step="0.5" type="range" value="10.5"/>
+</div>
+</div>
+<!-- Specular Slider -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<span class="text-on-surface-variant font-medium">Specular</span>
+<span id="val-specular" class="text-telemetry-sm font-telemetry-sm text-primary font-mono px-2 py-0.5 rounded bg-surface-container-highest/60 border border-outline-variant/30">1.5</span>
+</div>
+<div class="relative flex items-center">
+<input id="slider-specular" class="w-full h-2 bg-surface-container-highest rounded-lg appearance-none cursor-pointer focus:outline-none" max="10" min="0" step="0.1" type="range" value="1.5"/>
+</div>
+</div>
+</div>
+<!-- Secondary Parameter Quick Toggles -->
+<div class="flex flex-col gap-2 pt-3 border-t border-outline-variant/20">
+<!-- Toggle: Subsurface Scattering -->
+<div class="flex items-center justify-between py-1">
+<span class="text-body-sm font-body-sm text-on-surface">Subsurface Scattering</span>
+<button class="toggle-btn w-10 h-5 rounded-full bg-primary-container p-0.5 transition-colors relative flex items-center">
+<div class="toggle-thumb w-4 h-4 rounded-full bg-white shadow-md transform translate-x-5 transition-transform"></div>
+</button>
+</div>
+<!-- Toggle: Anisotropy -->
+<div class="flex items-center justify-between py-1">
+<span class="text-body-sm font-body-sm text-on-surface-variant">Anisotropy</span>
+<button class="toggle-btn w-10 h-5 rounded-full bg-surface-bright p-0.5 transition-colors relative flex items-center">
+<div class="toggle-thumb w-4 h-4 rounded-full bg-outline shadow-md transform translate-x-0 transition-transform"></div>
+</button>
+</div>
+<!-- Toggle: Normal Map -->
+<div class="flex items-center justify-between py-1">
+<span class="text-body-sm font-body-sm text-on-surface">Normal Map</span>
+<button class="toggle-btn w-10 h-5 rounded-full bg-primary-container p-0.5 transition-colors relative flex items-center">
+<div class="toggle-thumb w-4 h-4 rounded-full bg-white shadow-md transform translate-x-5 transition-transform"></div>
+</button>
+</div>
+</div>
+<!-- Quick Action / Generate Texture -->
+<button id="btn-synthesize" class="w-full py-2.5 px-3 rounded-xl bg-surface-bright/50 hover:bg-surface-bright text-on-surface border border-outline-variant/40 flex items-center justify-center gap-2 text-label-spatial font-label-spatial tracking-wider transition-all duration-200">
+<span class="material-symbols-outlined text-secondary text-base">auto_awesome</span>
+Synthesize Surface Map
+</button>
+</aside>
+
+<!-- Floating Re-open Inspector Button (Hidden by default) -->
+<button id="btn-open-inspector" class="fixed right-8 top-28 z-40 hidden px-4 py-2 glass-slab rounded-full border border-primary/30 text-primary text-label-spatial font-label-spatial flex items-center gap-2 shadow-2xl hover:scale-105 transition-all">
+<span class="material-symbols-outlined text-base">tune</span>
+<span>Inspector</span>
+</button>
+
+<!-- ================= BOTTOM CONTROL STRIP ================= -->
+<footer class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-auto">
+<!-- Primary Floating Pill Bar -->
+<div class="flex items-center gap-3 px-4 py-2 bg-surface-container/70 dark:bg-surface-container/70 backdrop-blur-2xl rounded-full border border-outline-variant/30 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)]">
+<!-- Undo -->
+<button id="btn-undo" class="flex items-center justify-center text-on-surface-variant p-3 hover:text-on-surface hover:bg-surface-bright/30 rounded-full active:scale-95 transition-all duration-150" title="Undo">
+<span class="material-symbols-outlined text-xl">undo</span>
+</button>
+<!-- Redo -->
+<button id="btn-redo" class="flex items-center justify-center text-on-surface-variant p-3 hover:text-on-surface hover:bg-surface-bright/30 rounded-full active:scale-95 transition-all duration-150" title="Redo">
+<span class="material-symbols-outlined text-xl">redo</span>
+</button>
+<!-- Shading / Gizmo Toggle (Active / Toggled State) -->
+<button id="btn-gizmo" class="flex items-center justify-center bg-secondary/20 text-secondary rounded-full p-3 ring-1 ring-secondary/40 active:scale-95 transition-transform duration-150 ease-out" title="Gizmo Transform Triad (Toggle)">
+<span class="material-symbols-outlined text-xl">tonality</span>
+</button>
+<!-- Raytrace / Render -->
+<button id="btn-render" class="flex items-center justify-center text-on-surface-variant p-3 hover:text-on-surface hover:bg-surface-bright/30 rounded-full active:scale-95 transition-all duration-150" title="Raytrace View">
+<span class="material-symbols-outlined text-xl">auto_awesome</span>
+</button>
+<!-- AI Gen Preview Smart Badge -->
+<div class="pl-2 border-l border-outline-variant/30 flex items-center">
+<button id="btn-aigen" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-primary-container/20 to-tertiary-container/30 hover:from-primary-container/30 hover:to-tertiary-container/40 border border-primary/30 text-primary text-label-spatial font-label-spatial tracking-wider shadow-sm transition-all active:scale-95">
+<span class="material-symbols-outlined text-base">neurology</span>
+<span>AI Gen Preview</span>
+</button>
+</div>
+</div>
+<!-- Three subtle pagination dots below the pill (Apple visionOS standard) -->
+<div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container/40 backdrop-blur-md rounded-full border border-outline-variant/15">
+<span class="w-1.5 h-1.5 rounded-full bg-white opacity-90"></span>
+<span class="w-1.5 h-1.5 rounded-full bg-white/30"></span>
+<span class="w-1.5 h-1.5 rounded-full bg-white/30"></span>
+<!-- VisionOS bottom window handle indicator -->
+<div class="w-10 h-1 bg-white/40 rounded-full ml-2"></div>
+</div>
+</footer>
+
+<!-- ================= AI GEN PROMPT MODAL ================= -->
+<div id="aigen-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md hidden transition-opacity">
+<div class="w-full max-w-lg glass-slab rounded-3xl p-6 border border-white/20 shadow-2xl flex flex-col gap-4">
+<div class="flex items-center justify-between pb-2 border-b border-white/10">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-2xl">neurology</span>
+<h3 class="text-headline-sm font-semibold text-white">Spatial AI 3D Mesh Generator</h3>
+</div>
+<button id="btn-close-modal" class="w-8 h-8 rounded-full bg-surface-bright/40 hover:bg-surface-bright text-white/70 hover:text-white flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+<p class="text-body-sm text-on-surface-variant">Describe the volumetric geometry or organic surface you wish to synthesize with neural radiance caching:</p>
+<textarea id="ai-prompt-input" rows="3" class="w-full rounded-2xl bg-surface-container-highest/60 border border-outline-variant/40 p-3 text-white text-body-sm focus:outline-none focus:border-primary placeholder-on-surface-variant/50" placeholder="e.g. Aerodynamic biomimetic drone chassis with honeycomb lattice cooling vents..."></textarea>
+<div class="flex items-center justify-between pt-2">
+<span class="text-label-spatial text-secondary font-mono">Model: visionOS Volumetric Diffusion v2.4</span>
+<button id="btn-run-generate" class="px-5 py-2 rounded-full bg-primary-container text-on-primary-container font-semibold text-body-sm hover:brightness-110 shadow-lg shadow-primary-container/30 active:scale-95 transition-all">
+Generate Mesh
+</button>
+</div>
+</div>
+</div>
+
+<!-- ================= FLOATING ACTION TOAST ================= -->
+<div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 glass-slab px-4 py-2 rounded-full border border-primary/40 text-primary text-body-sm shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 flex items-center gap-2">
+<span id="toast-icon" class="material-symbols-outlined text-base">check_circle</span>
+<span id="toast-msg">Operation completed</span>
+</div>
+
+<!-- ================= INTERACTIVE SCRIPT ================= -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. Tool Selection
+  const toolButtons = document.querySelectorAll('.tool-btn');
+  toolButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      toolButtons.forEach(b => {
+        b.classList.remove('active-tool', 'bg-primary-container/20', 'text-primary', 'border', 'border-primary/40', 'shadow-[0_0_16px_rgba(170,199,255,0.35)]');
+        b.classList.add('text-on-surface-variant');
+        const pip = b.querySelector('.w-1\\.5');
+        if (pip) pip.remove();
+      });
+      btn.classList.add('active-tool', 'bg-primary-container/20', 'text-primary', 'border', 'border-primary/40', 'shadow-[0_0_16px_rgba(170,199,255,0.35)]');
+      btn.classList.remove('text-on-surface-variant');
+      
+      const pip = document.createElement('span');
+      pip.className = 'absolute -right-1 top-1.5 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_#aac7ff]';
+      btn.appendChild(pip);
+      
+      showToast(`Activated Tool: ${btn.dataset.tool || btn.title}`, 'build');
+    });
+  });
+
+  // 2. Material Swatches
+  const swatches = document.querySelectorAll('.swatch-btn');
+  const gradStop1 = document.getElementById('grad-stop-1');
+  const gradStop2 = document.getElementById('grad-stop-2');
+  const gradStop3 = document.getElementById('grad-stop-3');
+  const gradStop4 = document.getElementById('grad-stop-4');
+  
+  const materials = {
+    steel: {
+      name: 'Brushed Steel',
+      roughness: 18.0,
+      metallic: 94.5,
+      specular: 4.8,
+      stops: ['#E2E8F0', '#94A3B8', '#CBD5E1', '#475569']
+    },
+    polymer: {
+      name: 'Organic Polymer',
+      roughness: 43.0,
+      metallic: 10.5,
+      specular: 1.5,
+      stops: ['#AAC7FF', '#3E90FF', '#7BD0FF', '#8083FF']
+    },
+    carbon: {
+      name: 'Carbon Fiber',
+      roughness: 68.0,
+      metallic: 42.0,
+      specular: 2.2,
+      stops: ['#334155', '#1E293B', '#0F172A', '#020617']
+    }
+  };
+
+  swatches.forEach(btn => {
+    btn.addEventListener('click', () => {
+      swatches.forEach(b => {
+        b.classList.remove('border-2', 'border-primary', 'bg-primary-container/15', 'shadow-[0_0_14px_rgba(62,144,255,0.3)]');
+        b.classList.add('border-outline-variant/20', 'bg-surface-container-high/40');
+        const span = b.querySelector('span');
+        if (span) {
+          span.classList.remove('text-primary', 'font-semibold');
+          span.classList.add('text-on-surface-variant');
+        }
+      });
+      btn.classList.add('border-2', 'border-primary', 'bg-primary-container/15', 'shadow-[0_0_14px_rgba(62,144,255,0.3)]');
+      btn.classList.remove('border-outline-variant/20', 'bg-surface-container-high/40');
+      const span = btn.querySelector('span');
+      if (span) {
+        span.classList.add('text-primary', 'font-semibold');
+        span.classList.remove('text-on-surface-variant');
+      }
+
+      const mat = materials[btn.dataset.material];
+      if (mat) {
+        document.getElementById('slider-roughness').value = mat.roughness;
+        document.getElementById('val-roughness').textContent = mat.roughness.toFixed(1);
+        document.getElementById('slider-metallic').value = mat.metallic;
+        document.getElementById('val-metallic').textContent = mat.metallic.toFixed(1);
+        document.getElementById('slider-specular').value = mat.specular;
+        document.getElementById('val-specular').textContent = mat.specular.toFixed(1);
+        
+        if (gradStop1 && mat.stops) {
+          gradStop1.setAttribute('stop-color', mat.stops[0]);
+          gradStop2.setAttribute('stop-color', mat.stops[1]);
+          gradStop3.setAttribute('stop-color', mat.stops[2]);
+          gradStop4.setAttribute('stop-color', mat.stops[3]);
+        }
+        showToast(`Applied Material: ${mat.name}`, 'palette');
+      }
+    });
+  });
+
+  // 3. Precision Sliders
+  const bindSlider = (sliderId, valId, suffix = '') => {
+    const slider = document.getElementById(sliderId);
+    const val = document.getElementById(valId);
+    if (!slider || !val) return;
+    slider.addEventListener('input', (e) => {
+      const num = parseFloat(e.target.value);
+      val.textContent = num.toFixed(1) + suffix;
+    });
+  };
+  bindSlider('slider-roughness', 'val-roughness');
+  bindSlider('slider-metallic', 'val-metallic');
+  bindSlider('slider-specular', 'val-specular');
+
+  // 4. Gizmo Toggle
+  const btnGizmo = document.getElementById('btn-gizmo');
+  const gizmoRings = document.getElementById('gizmo-rings');
+  let gizmoActive = true;
+  btnGizmo.addEventListener('click', () => {
+    gizmoActive = !gizmoActive;
+    if (gizmoActive) {
+      gizmoRings.classList.remove('opacity-0');
+      btnGizmo.classList.add('bg-secondary/20', 'text-secondary', 'ring-1', 'ring-secondary/40');
+      btnGizmo.classList.remove('text-on-surface-variant');
+      showToast('Transform Gizmo Enabled', 'tonality');
+    } else {
+      gizmoRings.classList.add('opacity-0');
+      btnGizmo.classList.remove('bg-secondary/20', 'text-secondary', 'ring-1', 'ring-secondary/40');
+      btnGizmo.classList.add('text-on-surface-variant');
+      showToast('Transform Gizmo Disabled', 'blur_off');
+    }
+  });
+
+  // 5. 3D Mesh Interactive Drag Rotation
+  const modelWrapper = document.getElementById('model-wrapper');
+  const telemetryX = document.getElementById('telemetry-x');
+  const telemetryY = document.getElementById('telemetry-y');
+  let isDragging = false;
+  let startX = 0, startY = 0;
+  let rotX = -2, rotY = -2;
+
+  modelWrapper.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    modelWrapper.style.cursor = 'grabbing';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    rotY += dx * 0.4;
+    rotX -= dy * 0.4;
+    
+    // Clamp rotX
+    rotX = Math.max(-60, Math.min(60, rotX));
+
+    modelWrapper.style.transform = `perspective(800px) rotateX(${rotX.toFixed(1)}deg) rotateY(${rotY.toFixed(1)}deg)`;
+    if (telemetryX) telemetryX.textContent = Math.round(rotX);
+    if (telemetryY) telemetryY.textContent = Math.round(rotY);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      modelWrapper.style.cursor = 'grab';
+    }
+  });
+
+  // 6. Inspector Open/Close
+  const inspector = document.getElementById('inspector-pane');
+  const btnClose = document.getElementById('btn-close-inspector');
+  const btnOpen = document.getElementById('btn-open-inspector');
+  btnClose.addEventListener('click', () => {
+    inspector.classList.add('translate-x-96', 'opacity-0');
+    setTimeout(() => {
+      inspector.classList.add('hidden');
+      btnOpen.classList.remove('hidden');
+    }, 250);
+  });
+  btnOpen.addEventListener('click', () => {
+    btnOpen.classList.add('hidden');
+    inspector.classList.remove('hidden');
+    setTimeout(() => {
+      inspector.classList.remove('translate-x-96', 'opacity-0');
+    }, 10);
+  });
+
+  // 7. AI Gen Modal
+  const modal = document.getElementById('aigen-modal');
+  const btnAiGen = document.getElementById('btn-aigen');
+  const btnCloseModal = document.getElementById('btn-close-modal');
+  const btnRunGen = document.getElementById('btn-run-generate');
+  btnAiGen.addEventListener('click', () => {
+    modal.classList.remove('hidden');
+  });
+  btnCloseModal.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+  btnRunGen.addEventListener('click', () => {
+    modal.classList.add('hidden');
+    showToast('Neural Mesh Synthesis in progress...', 'auto_awesome');
+  });
+
+  // 8. Render & Undo/Redo Toasts
+  document.getElementById('btn-render').addEventListener('click', () => {
+    showToast('Real-time Raytracing pass queued', 'lens_blur');
+  });
+  document.getElementById('btn-undo').addEventListener('click', () => {
+    showToast('Reverted vertex transformation (Undo)', 'undo');
+  });
+  document.getElementById('btn-redo').addEventListener('click', () => {
+    showToast('Restored transformation (Redo)', 'redo');
+  });
+  document.getElementById('btn-synthesize').addEventListener('click', () => {
+    showToast('Synthesizing high-res PBR normal & surface maps...', 'magic_button');
+  });
+
+  // Quick Toggles
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const thumb = btn.querySelector('.toggle-thumb');
+      const isOn = thumb.classList.contains('translate-x-5');
+      if (isOn) {
+        thumb.classList.remove('translate-x-5');
+        thumb.classList.add('translate-x-0');
+        btn.classList.remove('bg-primary-container');
+        btn.classList.add('bg-surface-bright');
+      } else {
+        thumb.classList.remove('translate-x-0');
+        thumb.classList.add('translate-x-5');
+        btn.classList.remove('bg-surface-bright');
+        btn.classList.add('bg-primary-container');
+      }
+    });
+  });
+
+  function showToast(msg, icon = 'info') {
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toast-msg');
+    const toastIcon = document.getElementById('toast-icon');
+    toastMsg.textContent = msg;
+    toastIcon.textContent = icon;
+    toast.classList.remove('opacity-0');
+    clearTimeout(window._toastTimeout);
+    window._toastTimeout = setTimeout(() => {
+      toast.classList.add('opacity-0');
+    }, 2200);
+  }
+});
+</script>
+</body></html>
