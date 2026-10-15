@@ -1053,44 +1053,52 @@ public struct WireframeOverlayView: View {
     }
 
     public var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            ZStack {
-                // Outer glowing rim
-                Circle()
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.cyan.opacity(0.55), Color.blue.opacity(0.3)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.5
-                    )
+        Canvas { context, size in
+            let w = size.width
+            let h = size.height
 
-                // Concentric Latitude Rings
-                ForEach(1..<subdivisions, id: \.self) { i in
-                    let norm = Double(i) / Double(subdivisions)
-                    let angle = norm * .pi
-                    let yOffset = cos(angle) * (h / 2)
-                    let ringWidth = sin(angle) * w
-                    let ringHeight = max(2, ringWidth * 0.28)
+            // Outer glowing rim
+            context.stroke(
+                Circle().path(in: CGRect(origin: .zero, size: size)),
+                with: .color(Color.cyan.opacity(0.55)),
+                lineWidth: 1.5
+            )
 
-                    Ellipse()
-                        .stroke(Color.cyan.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .frame(width: ringWidth, height: ringHeight)
-                        .offset(y: yOffset)
-                }
+            // Latitude rings
+            for i in 1..<subdivisions {
+                let norm = Double(i) / Double(subdivisions)
+                let angle = norm * .pi
+                let yOffset = cos(angle) * (h / 2)
+                let ringWidth = sin(angle) * w
+                let ringHeight = max(2, ringWidth * 0.28)
+                let rect = CGRect(
+                    x: (w - ringWidth) / 2,
+                    y: (h / 2) + yOffset - (ringHeight / 2),
+                    width: ringWidth,
+                    height: ringHeight
+                )
+                context.stroke(
+                    Ellipse().path(in: rect),
+                    with: .color(Color.cyan.opacity(0.28)),
+                    style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+                )
+            }
 
-                // Longitude Meridian Curves
-                ForEach(0..<subdivisions, id: \.self) { i in
-                    let angle = Double(i) * (.pi / Double(subdivisions))
-                    let ringWidth = max(2, sin(angle) * w)
-
-                    Ellipse()
-                        .stroke(Color.blue.opacity(0.22), lineWidth: 1)
-                        .frame(width: ringWidth, height: h)
-                }
+            // Longitude curves
+            for i in 0..<subdivisions {
+                let angle = Double(i) * (.pi / Double(subdivisions))
+                let ringWidth = max(2, sin(angle) * w)
+                let rect = CGRect(
+                    x: (w - ringWidth) / 2,
+                    y: 0,
+                    width: ringWidth,
+                    height: h
+                )
+                context.stroke(
+                    Ellipse().path(in: rect),
+                    with: .color(Color.blue.opacity(0.22)),
+                    lineWidth: 1
+                )
             }
         }
     }
