@@ -8,6 +8,7 @@
 import SwiftUI
 import RealityKit
 import RealityKitContent
+import simd
 
 // MARK: - 3D Math & Data Types
 
@@ -44,6 +45,7 @@ public struct MaterialSpec: Identifiable, Hashable, Sendable {
     public var name: String
     public var gradient: [Color]
     public var baseColor: Color
+    public var uiColor: UIColor
     public var roughness: Double
     public var metallic: Double
     public var specular: Double
@@ -54,6 +56,7 @@ public struct MaterialSpec: Identifiable, Hashable, Sendable {
         name: String,
         gradient: [Color],
         baseColor: Color,
+        uiColor: UIColor,
         roughness: Double,
         metallic: Double,
         specular: Double,
@@ -63,6 +66,7 @@ public struct MaterialSpec: Identifiable, Hashable, Sendable {
         self.name = name
         self.gradient = gradient
         self.baseColor = baseColor
+        self.uiColor = uiColor
         self.roughness = roughness
         self.metallic = metallic
         self.specular = specular
@@ -145,7 +149,7 @@ public struct VisionFormWorkspaceView: View {
     @State private var rotationY: Double = -2.0
     @State private var polyCount: Int = 42804
 
-    // Requirement 2: Brush Toggle on/off state
+    // Brush State
     @State private var isBrushActive: Bool = true
     @State private var brushMode: BrushMode = .paint
     @State private var brushOrbitMode: Bool = false
@@ -153,7 +157,7 @@ public struct VisionFormWorkspaceView: View {
     @State private var activeStrokeSize: CGFloat = 14.0
     @State private var active3DStrokePoints: [Point3D] = []
 
-    // Requirement 3: 3D Surface Strokes (drawn in 3D product space)
+    // 3D Surface Strokes (drawn on the 3D product)
     @State private var strokes3D: [Surface3DStroke] = [
         Surface3DStroke(
             points: (0...24).map { i -> Point3D in
@@ -171,7 +175,7 @@ public struct VisionFormWorkspaceView: View {
         )
     ]
 
-    // Requirement 1: Drag & Drop Material State
+    // Material Drag & Drop State
     @State private var isDropTargetActive: Bool = false
     @State private var materialAppliedToast: String? = nil
 
@@ -188,7 +192,7 @@ public struct VisionFormWorkspaceView: View {
         "gizmo": 0.7
     ]
 
-    // Tools list matching Stitch specifications
+    // Tools list
     private let tools: [(name: String, icon: String)] = [
         ("Layers", "square.stack.3d.up"),
         ("Sculpt", "paintbrush.pointed.fill"),
@@ -199,13 +203,14 @@ public struct VisionFormWorkspaceView: View {
         ("Boolean", "square.2.layers.3d")
     ]
 
-    // Comprehensive Materials List for Drag & Drop
+    // Comprehensive Materials Presets for Drag & Drop
     private let materialsList: [MaterialSpec] = [
         MaterialSpec(
             id: "organic",
             name: "Organic Polymer",
             gradient: [Color(red: 0.45, green: 0.72, blue: 1.0), Color(red: 0.15, green: 0.45, blue: 0.95)],
             baseColor: .cyan,
+            uiColor: UIColor(red: 0.3, green: 0.65, blue: 0.98, alpha: 1.0),
             roughness: 43.0,
             metallic: 10.5,
             specular: 1.5,
@@ -216,6 +221,7 @@ public struct VisionFormWorkspaceView: View {
             name: "Brushed Steel",
             gradient: [Color(white: 0.88), Color(white: 0.55), Color(white: 0.25)],
             baseColor: Color(white: 0.75),
+            uiColor: UIColor(red: 0.82, green: 0.85, blue: 0.9, alpha: 1.0),
             roughness: 28.0,
             metallic: 92.0,
             specular: 8.5,
@@ -226,6 +232,7 @@ public struct VisionFormWorkspaceView: View {
             name: "Carbon Fiber",
             gradient: [Color(white: 0.32), Color(white: 0.15), Color(white: 0.05)],
             baseColor: Color(white: 0.2),
+            uiColor: UIColor(red: 0.15, green: 0.16, blue: 0.18, alpha: 1.0),
             roughness: 65.0,
             metallic: 35.0,
             specular: 4.0,
@@ -236,6 +243,7 @@ public struct VisionFormWorkspaceView: View {
             name: "Liquid Gold",
             gradient: [Color(red: 1.0, green: 0.88, blue: 0.35), Color(red: 0.85, green: 0.6, blue: 0.15)],
             baseColor: Color(red: 1.0, green: 0.8, blue: 0.2),
+            uiColor: UIColor(red: 1.0, green: 0.82, blue: 0.22, alpha: 1.0),
             roughness: 12.0,
             metallic: 98.0,
             specular: 9.5,
@@ -246,6 +254,7 @@ public struct VisionFormWorkspaceView: View {
             name: "Emerald Glass",
             gradient: [Color(red: 0.25, green: 0.95, blue: 0.6), Color(red: 0.05, green: 0.45, blue: 0.25)],
             baseColor: Color(red: 0.1, green: 0.8, blue: 0.4),
+            uiColor: UIColor(red: 0.1, green: 0.85, blue: 0.45, alpha: 1.0),
             roughness: 6.0,
             metallic: 8.0,
             specular: 9.8,
@@ -270,7 +279,7 @@ public struct VisionFormWorkspaceView: View {
 
                 // Middle Studio Row (Left Sidebar, Layers Panel, Centered 3D Viewport, Right Inspector)
                 HStack(alignment: .center, spacing: 16) {
-                    // Left Vertical Toolbar - safely inset with 32pt padding
+                    // Left Vertical Toolbar
                     leftToolbar
                         .padding(.leading, 32)
 
@@ -353,10 +362,10 @@ public struct VisionFormWorkspaceView: View {
         .darkBlueTranslucentCapsule()
     }
 
-    // MARK: - Viewport Center 3D Model (with 3D Drawing & Material Drop Destination)
+    // MARK: - Viewport Center 3D Model (RealityKit 3D PBR Model + Drop Destination)
     private var viewportCenter: some View {
         VStack(spacing: 12) {
-            // Floating Brush HUD Palette (shows when Brush/Sculpt is selected)
+            // Minimal Floating Brush HUD Palette
             if activeTool == "Brush" || activeTool == "Sculpt" {
                 brushControlHUD
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -386,32 +395,51 @@ public struct VisionFormWorkspaceView: View {
 
                 // 3D Model & Interactive Layers Group
                 ZStack {
-                    // Layer 3: Dynamic Volumetric Material Surface (Updates on Drop)
+                    // Layer 3: True 3D RealityKit Model with Dynamic PBR Material Applied to the 3D Geometry
                     if isBaseMeshLayerVisible {
-                        DynamicMaterialSphereView(
-                            material: currentMaterialSpec,
-                            roughness: roughness,
-                            metallic: metallic,
-                            specular: specular,
-                            isDropTarget: isDropTargetActive
-                        )
-                        .opacity(layerOpacity["base"] ?? 1.0)
-                        .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
-                        .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
+                        RealityView { content in
+                            let root = Entity()
+                            root.name = "StudioModelRoot"
 
-                        // RealityKit scene overlay with soft blend
-                        Model3D(named: "Scene", bundle: realityKitContentBundle) { model in
-                            model
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 340, height: 340)
-                                .opacity(0.25)
-                                .blendMode(.multiply)
-                        } placeholder: {
-                            EmptyView()
+                            if let scene = try? await Entity(named: "Scene", in: realityKitContentBundle) {
+                                scene.name = "SceneEntity"
+                                scene.scale = SIMD3<Float>(repeating: 2.2)
+                                root.addChild(scene)
+                            } else {
+                                let mesh = MeshResource.generateSphere(radius: 0.11)
+                                var pbr = PhysicallyBasedMaterial()
+                                pbr.baseColor = .init(tint: UIColor(red: 0.3, green: 0.65, blue: 0.98, alpha: 1.0))
+                                let sphere = ModelEntity(mesh: mesh, materials: [pbr])
+                                sphere.name = "SphereFallback"
+                                root.addChild(sphere)
+                            }
+
+                            content.add(root)
+                        } update: { content in
+                            guard let root = content.entities.first(where: { $0.name == "StudioModelRoot" }) else { return }
+
+                            // 1. Update 3D Rotation on the actual RealityKit entity
+                            let radX = Float(rotationX * .pi / 180.0)
+                            let radY = Float(rotationY * .pi / 180.0)
+                            let qX = simd_quatf(angle: radX, axis: SIMD3<Float>(1, 0, 0))
+                            let qY = simd_quatf(angle: radY, axis: SIMD3<Float>(0, 1, 0))
+                            root.transform.rotation = qY * qX
+
+                            // 2. Exploded scale if active
+                            let baseScale: Float = isExplodedView ? 1.85 : 2.2
+                            root.transform.scale = SIMD3<Float>(repeating: baseScale)
+
+                            // 3. True 3D Physically-Based Material applied directly to the 3D Mesh
+                            var pbr = PhysicallyBasedMaterial()
+                            pbr.baseColor = .init(tint: currentMaterialSpec.uiColor)
+                            pbr.roughness = .init(floatLiteral: Float(max(0.01, min(1.0, roughness / 100.0))))
+                            pbr.metallic = .init(floatLiteral: Float(max(0.0, min(1.0, metallic / 100.0))))
+                            pbr.specular = .init(floatLiteral: Float(max(0.0, min(1.0, specular / 10.0))))
+
+                            applyMaterialToHierarchy(pbr, to: root)
                         }
-                        .rotation3DEffect(.degrees(rotationX), axis: (x: 1, y: 0, z: 0))
-                        .rotation3DEffect(.degrees(rotationY), axis: (x: 0, y: 1, z: 0))
+                        .frame(width: 340, height: 340)
+                        .opacity(layerOpacity["base"] ?? 1.0)
                     }
 
                     // Layer 2: Topology Wireframe Grid
@@ -539,6 +567,17 @@ public struct VisionFormWorkspaceView: View {
         .frame(maxWidth: 500, maxHeight: 560)
     }
 
+    // MARK: - Recursively Apply Material to RealityKit Entities
+    private func applyMaterialToHierarchy(_ material: RealityKit.Material, to entity: Entity) {
+        if var model = entity.components[ModelComponent.self] {
+            model.materials = [material]
+            entity.components.set(model)
+        }
+        for child in entity.children {
+            applyMaterialToHierarchy(material, to: child)
+        }
+    }
+
     // MARK: - Minimal Apple visionOS Brush Floating HUD Palette
     private var brushControlHUD: some View {
         HStack(spacing: 10) {
@@ -604,7 +643,7 @@ public struct VisionFormWorkspaceView: View {
 
                 Divider().frame(height: 16).background(Color.white.opacity(0.2))
 
-                // Color Swatches (Clean, crisp 15pt circles)
+                // Color Swatches
                 HStack(spacing: 6) {
                     ForEach([
                         Color.cyan,
@@ -633,7 +672,7 @@ public struct VisionFormWorkspaceView: View {
 
                 Divider().frame(height: 16).background(Color.white.opacity(0.2))
 
-                // Brush Size: Visual Dot Indicators (Small, Medium, Large)
+                // Brush Size: Visual Dot Indicators
                 HStack(spacing: 3) {
                     ForEach([(8, 5.0), (14, 9.0), (22, 13.0)], id: \.0) { size, dotDiameter in
                         let isSelected = activeStrokeSize == CGFloat(size)
@@ -658,7 +697,7 @@ public struct VisionFormWorkspaceView: View {
 
                 Divider().frame(height: 16).background(Color.white.opacity(0.2))
 
-                // Orbit vs Draw Toggle (Compact Icon)
+                // Orbit vs Draw Toggle
                 Button {
                     brushOrbitMode.toggle()
                 } label: {
@@ -700,7 +739,7 @@ public struct VisionFormWorkspaceView: View {
         .darkBlueTranslucentCapsule()
     }
 
-    // MARK: - Requirement 1: Apply Material Logic
+    // MARK: - Apply Material Logic
     private func applyMaterial(named name: String) {
         if let found = materialsList.first(where: { $0.name == name }) {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
@@ -980,7 +1019,7 @@ public struct VisionFormWorkspaceView: View {
         .darkBlueTranslucentCapsule()
     }
 
-    // MARK: - Left Vertical Toolbar (with Brush Toggle on Click)
+    // MARK: - Left Vertical Toolbar
     private var leftToolbar: some View {
         VStack(spacing: 12) {
             ForEach(tools, id: \.name) { tool in
@@ -988,7 +1027,6 @@ public struct VisionFormWorkspaceView: View {
                 Button {
                     if tool.name == "Brush" {
                         if activeTool == "Brush" {
-                            // Requirement 2: Toggle Brush on and off on repeated click
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 isBrushActive.toggle()
                             }
@@ -1034,7 +1072,6 @@ public struct VisionFormWorkspaceView: View {
                         )
                         .shadow(color: isActive ? Color.cyan.opacity(0.3) : .clear, radius: 8)
 
-                        // Brush ON indicator dot badge
                         if tool.name == "Brush" && isBrushActive {
                             Circle()
                                 .fill(Color.green)
@@ -1053,7 +1090,7 @@ public struct VisionFormWorkspaceView: View {
         .darkBlueTranslucentRounded(cornerRadius: 28)
     }
 
-    // MARK: - Right Inspector Card (Requirement 1: Draggable Material Cards)
+    // MARK: - Right Inspector Card (Draggable Material Cards)
     private var rightInspector: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
@@ -1082,7 +1119,7 @@ public struct VisionFormWorkspaceView: View {
                 .buttonStyle(.plain)
             }
 
-            // Material Swatches: Requirement 1 - Drag and Droppable to 3D Model
+            // Material Swatches: Drag and Droppable to 3D Model
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("MATERIALS (DRAG TO MODEL)")
@@ -1135,7 +1172,6 @@ public struct VisionFormWorkspaceView: View {
                                 )
                             }
                             .buttonStyle(.plain)
-                            // Requirement 1: Make each material draggable to the 3D model
                             .draggable(mat.name) {
                                 HStack(spacing: 6) {
                                     Circle()
@@ -1157,7 +1193,7 @@ public struct VisionFormWorkspaceView: View {
                 }
             }
 
-            // Precision Sliders (Sync live with active material)
+            // Precision Sliders (Sync live with active 3D material)
             VStack(spacing: 16) {
                 sliderRow(title: "Roughness", value: $roughness, range: 0...100, spec: "%.1f")
                 sliderRow(title: "Metallic", value: $metallic, range: 0...100, spec: "%.1f")
@@ -1339,105 +1375,6 @@ public struct VisionFormWorkspaceView: View {
     }
 }
 
-// MARK: - Dynamic Volumetric Material Surface View (Updates on Material Drop)
-public struct DynamicMaterialSphereView: View {
-    public var material: MaterialSpec
-    public var roughness: Double
-    public var metallic: Double
-    public var specular: Double
-    public var isDropTarget: Bool
-
-    public init(
-        material: MaterialSpec,
-        roughness: Double,
-        metallic: Double,
-        specular: Double,
-        isDropTarget: Bool
-    ) {
-        self.material = material
-        self.roughness = roughness
-        self.metallic = metallic
-        self.specular = specular
-        self.isDropTarget = isDropTarget
-    }
-
-    public var body: some View {
-        ZStack {
-            // Base Material Gradient
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: material.gradient,
-                        center: UnitPoint(x: 0.32, y: 0.3),
-                        startRadius: 15,
-                        endRadius: 170
-                    )
-                )
-
-            // Ambient Occlusion / Darker underside shadow
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.clear, Color.black.opacity(0.65)],
-                        center: UnitPoint(x: 0.35, y: 0.35),
-                        startRadius: 50,
-                        endRadius: 170
-                    )
-                )
-
-            // Metallic sheen layer
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(metallic / 100.0 * 0.4),
-                            Color.clear,
-                            Color.black.opacity(metallic / 100.0 * 0.3)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .blendMode(.overlay)
-
-            // Specular Reflection Highlight (Controlled by Roughness & Specular)
-            let highlightSize = max(10.0, (100.0 - roughness) * 0.7)
-            let highlightOpacity = min(1.0, (specular / 10.0) * 0.95 + 0.05)
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(highlightOpacity),
-                            Color.white.opacity(highlightOpacity * 0.3),
-                            Color.clear
-                        ],
-                        center: UnitPoint(x: 0.28, y: 0.26),
-                        startRadius: 2,
-                        endRadius: highlightSize
-                    )
-                )
-                .blendMode(.screen)
-
-            // Outer Fresnel Specular Rim Stroke
-            Circle()
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.75),
-                            material.baseColor.opacity(0.4),
-                            Color.clear
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 2
-                )
-        }
-        .frame(width: 340, height: 340)
-        .clipShape(Circle())
-    }
-}
-
 // MARK: - Topology Wireframe Overlay View (Single Canvas Draw Call)
 public struct WireframeOverlayView: View {
     var subdivisions: Int = 10
@@ -1498,7 +1435,7 @@ public struct WireframeOverlayView: View {
     }
 }
 
-// MARK: - Requirement 3: True 3D Surface Strokes Canvas View (Rotates in 3D & Clips to Horizon)
+// MARK: - 3D Surface Strokes Canvas View (Rotates in 3D & Clips to Horizon)
 public struct Surface3DCanvasView: View {
     public var strokes: [Surface3DStroke]
     public var activePoints: [Point3D]
