@@ -539,128 +539,144 @@ public struct VisionFormWorkspaceView: View {
         .frame(maxWidth: 500, maxHeight: 560)
     }
 
-    // MARK: - Requirement 2: Brush Control HUD Palette with Power Toggle
+    // MARK: - Minimal Apple visionOS Brush Floating HUD Palette
     private var brushControlHUD: some View {
-        HStack(spacing: 12) {
-            // Master Brush ON/OFF Toggle Button
+        HStack(spacing: 10) {
+            // Master Brush ON/OFF Toggle Icon
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isBrushActive.toggle()
                 }
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: isBrushActive ? "checkmark.circle.fill" : "power")
-                        .foregroundColor(isBrushActive ? .green : .red.opacity(0.8))
-                        .font(.system(size: 13, weight: .bold))
-                    Text(isBrushActive ? "BRUSH ON" : "BRUSH OFF")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(isBrushActive ? .white : .white.opacity(0.6))
+                HStack(spacing: 5) {
+                    Image(systemName: isBrushActive ? "paintbrush.fill" : "paintbrush")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(isBrushActive ? .cyan : .white.opacity(0.4))
+                    Circle()
+                        .fill(isBrushActive ? Color.green : Color.white.opacity(0.2))
+                        .frame(width: 6, height: 6)
+                        .shadow(color: isBrushActive ? .green : .clear, radius: 4)
                 }
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 9)
                 .padding(.vertical, 6)
-                .background(isBrushActive ? Color.green.opacity(0.2) : Color.white.opacity(0.06))
+                .background(isBrushActive ? Color.cyan.opacity(0.18) : Color.white.opacity(0.05))
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
-                        .stroke(isBrushActive ? Color.green.opacity(0.5) : Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(isBrushActive ? Color.cyan.opacity(0.5) : Color.white.opacity(0.12), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
+            .help(isBrushActive ? "Disable Brush" : "Enable Brush")
 
             if isBrushActive {
-                Divider().frame(height: 18).background(Color.white.opacity(0.2))
+                Divider().frame(height: 16).background(Color.white.opacity(0.2))
 
-                // Mode Selector: Paint vs Sculpt vs Erase
-                HStack(spacing: 3) {
+                // Mode Icons: Paint | Sculpt | Erase
+                HStack(spacing: 2) {
                     ForEach(BrushMode.allCases, id: \.self) { mode in
+                        let isSelected = brushMode == mode
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                                 brushMode = mode
                                 if mode == .sculpt { activeTool = "Sculpt" }
                                 else if mode == .paint { activeTool = "Brush" }
                             }
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: mode.icon)
-                                    .font(.system(size: 11))
-                                Text(mode.rawValue)
-                                    .font(.system(size: 11, weight: .semibold))
-                            }
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5)
-                            .background(
-                                brushMode == mode ? Color.cyan.opacity(0.3) : Color.clear
-                            )
-                            .clipShape(Capsule())
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(isSelected ? .cyan : .white.opacity(0.6))
+                                .frame(width: 28, height: 28)
+                                .background(isSelected ? Color.cyan.opacity(0.25) : Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .stroke(isSelected ? Color.cyan.opacity(0.5) : Color.clear, lineWidth: 1)
+                                )
                         }
                         .buttonStyle(.plain)
-                        .foregroundColor(brushMode == mode ? .white : .white.opacity(0.65))
+                        .help(mode.rawValue)
                     }
                 }
-                .padding(3)
-                .background(Color.white.opacity(0.06))
-                .clipShape(Capsule())
+                .padding(2)
+                .background(Color.white.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
-                Divider().frame(height: 18).background(Color.white.opacity(0.2))
+                Divider().frame(height: 16).background(Color.white.opacity(0.2))
 
-                // Color Swatches
+                // Color Swatches (Clean, crisp 15pt circles)
                 HStack(spacing: 6) {
-                    ForEach([Color.cyan, Color(red: 1.0, green: 0.2, blue: 0.6), Color(red: 1.0, green: 0.8, blue: 0.1), Color(red: 0.2, green: 0.9, blue: 0.4), Color.white], id: \.self) { color in
+                    ForEach([
+                        Color.cyan,
+                        Color(red: 1.0, green: 0.2, blue: 0.6),
+                        Color(red: 1.0, green: 0.8, blue: 0.1),
+                        Color(red: 0.2, green: 0.9, blue: 0.4),
+                        Color.white
+                    ], id: \.self) { color in
+                        let isSelected = activeStrokeColor == color
                         Button {
                             activeStrokeColor = color
                         } label: {
                             Circle()
                                 .fill(color)
-                                .frame(width: 18, height: 18)
+                                .frame(width: 15, height: 15)
                                 .overlay(
-                                    Circle().stroke(Color.white, lineWidth: activeStrokeColor == color ? 2 : 0)
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: isSelected ? 2 : 0)
                                 )
+                                .scaleEffect(isSelected ? 1.15 : 1.0)
+                                .shadow(color: isSelected ? color.opacity(0.6) : .clear, radius: 4)
                         }
                         .buttonStyle(.plain)
                     }
                 }
 
-                Divider().frame(height: 18).background(Color.white.opacity(0.2))
+                Divider().frame(height: 16).background(Color.white.opacity(0.2))
 
-                // Brush Size Pills
-                HStack(spacing: 4) {
-                    ForEach([8, 14, 22], id: \.self) { size in
+                // Brush Size: Visual Dot Indicators (Small, Medium, Large)
+                HStack(spacing: 3) {
+                    ForEach([(8, 5.0), (14, 9.0), (22, 13.0)], id: \.0) { size, dotDiameter in
+                        let isSelected = activeStrokeSize == CGFloat(size)
                         Button {
                             activeStrokeSize = CGFloat(size)
                         } label: {
-                            Text("\(size)px")
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(activeStrokeSize == CGFloat(size) ? Color.blue.opacity(0.4) : Color.white.opacity(0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            Circle()
+                                .fill(isSelected ? Color.cyan : Color.white.opacity(0.6))
+                                .frame(width: dotDiameter, height: dotDiameter)
+                                .frame(width: 24, height: 24)
+                                .background(isSelected ? Color.cyan.opacity(0.2) : Color.white.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(isSelected ? Color.cyan.opacity(0.5) : Color.clear, lineWidth: 1)
+                                )
                         }
                         .buttonStyle(.plain)
-                        .foregroundColor(.white)
+                        .help("\(size)px Brush")
                     }
                 }
 
-                Divider().frame(height: 18).background(Color.white.opacity(0.2))
+                Divider().frame(height: 16).background(Color.white.opacity(0.2))
 
-                // Draw vs Orbit Mode Switch
+                // Orbit vs Draw Toggle (Compact Icon)
                 Button {
                     brushOrbitMode.toggle()
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: brushOrbitMode ? "arrow.triangle.2.circlepath" : "hand.draw.fill")
-                            .font(.system(size: 11))
-                        Text(brushOrbitMode ? "Orbit" : "Paint")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(brushOrbitMode ? Color.purple.opacity(0.35) : Color.blue.opacity(0.35))
-                    .clipShape(Capsule())
+                    Image(systemName: brushOrbitMode ? "arrow.triangle.2.circlepath" : "hand.draw.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(brushOrbitMode ? .purple : .cyan)
+                        .frame(width: 28, height: 28)
+                        .background(brushOrbitMode ? Color.purple.opacity(0.25) : Color.blue.opacity(0.2))
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(brushOrbitMode ? Color.purple.opacity(0.5) : Color.blue.opacity(0.35), lineWidth: 1)
+                        )
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.white)
+                .help(brushOrbitMode ? "Switch to Draw" : "Switch to Orbit View")
 
-                // Clear All Strokes Button
+                // Clear Strokes Icon Button
                 if !strokes3D.isEmpty {
                     Button {
                         withAnimation {
@@ -669,18 +685,18 @@ public struct VisionFormWorkspaceView: View {
                     } label: {
                         Image(systemName: "trash")
                             .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.7))
-                            .padding(6)
-                            .background(Color.white.opacity(0.08))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 26, height: 26)
+                            .background(Color.white.opacity(0.06))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .help("Clear Strokes")
+                    .help("Clear All Strokes")
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
         .darkBlueTranslucentCapsule()
     }
 
